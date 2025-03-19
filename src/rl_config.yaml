@@ -5,7 +5,7 @@ training: True   # Whether to train a model or not
 sb_config:
   total_timesteps: 40.0e+6
   check_pt_interval: 1.0e+6
-  num_cpu: 64
+  num_cpu: 6
 
 # Policy settings
 sb_policy:

@@ -1,3 +1,6 @@
+import os
+os.add_dll_directory("C://Users//john//.mujoco//mujoco200//bin")
+
 import robosuite as suite
 import os
 import yaml
@@ -127,7 +130,9 @@ if __name__ == '__main__':
 
     # RL pipeline
     if training:
-        env = SubprocVecEnv([make_robosuite_env(env_id, env_options, i, seed) for i in range(num_cpu)])
+        # env = SubprocVecEnv([make_robosuite_env(env_id, env_options, i, seed) for i in range(num_cpu)])
+
+        env = SubprocVecEnv([make_robosuite_env(env_id, env_options, i, seed) for i in range(2)])
 
         # Create callback
         checkpoint_callback = CheckpointCallback(save_freq=check_pt_interval, save_path='./checkpoints/', 
