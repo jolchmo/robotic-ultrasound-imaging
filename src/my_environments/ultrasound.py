@@ -169,6 +169,7 @@ class Ultrasound(SingleArmEnv):
         self.vel_reward_mul = 1
         self.force_reward_mul = 3
         self.der_force_reward_mul = 2
+        self.force_out_of_threshold_reward_mul = 10
 
         # desired states
         self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
@@ -262,6 +263,12 @@ class Ultrasound(SingleArmEnv):
         # derivative force
         self.der_force_error = np.square(self.der_force_error_mul * (self.der_z_contact_force - self.goal_der_contact_z_force))
         self.der_force_reward = self.der_force_reward_mul * np.exp(-1 * self.der_force_error) if self._check_probe_contact_with_torso() else 0
+
+        # out of threshold
+        self.force_out_of_threshold = -1 if self.z_contact_force_running_mean > 10 else 0
+        self.force_out_of_threshold_reward = self.force_out_of_threshold_reward_mul * self.force_out_of_threshold  
+
+
 
         # add rewards
         reward += (self.pos_reward + self.ori_reward + self.vel_reward + self.force_reward + self.der_force_reward)
