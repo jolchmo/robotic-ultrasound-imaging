@@ -4,9 +4,18 @@ __pycache__/
 
 # Virtual enviornment
 venv/
+env_us/
+
+#data
+src/hmfc_test_data/
+
+
+
 
 # Code used for testing out things
 testing/
+
+
 
 # Personal files and folders
 papers/
