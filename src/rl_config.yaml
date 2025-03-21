@@ -5,7 +5,7 @@ training: True   # Whether to train a model or not
 sb_config:
   total_timesteps: 40.0e+6
   check_pt_interval: 1.0e+6
-  num_cpu: 6
+  num_cpu: 1
 
 # Policy settings
 sb_policy:
@@ -17,10 +17,10 @@ sb_policy:
 # Specify environment
 robosuite:
   env_id: "Ultrasound"
-  robots: "Panda"
+  robots: "Tendon"
   use_camera_obs: False
   use_object_obs: False   # Torso obs
-  has_renderer: False
+  has_renderer: True
   has_offscreen_renderer: False
   render_camera: null
   control_freq: 500

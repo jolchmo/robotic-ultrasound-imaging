@@ -131,10 +131,10 @@ class Ultrasound(SingleArmEnv):
         initial_probe_pos_randomization=False,
         use_box_torso=True,
     ):
-        assert gripper_types == "UltrasoundProbeGripper",\
+        assert gripper_types == "UltrasoundProbeGripper", \
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
 
-        assert robots == "UR5e" or robots == "Panda", \
+        assert robots == "UR5e" or robots == "Panda" or robots == "Tendon", \
             "Robot must be UR5e or Panda!"
 
         assert "OSC" or "HMFC" in controller_configs["type"], \
@@ -150,9 +150,10 @@ class Ultrasound(SingleArmEnv):
         self.sigma = 0.010
 
         # settings for contact force running mean
-        self.alpha = 0.1    # decay factor (high alpha -> discounts older observations faster). Must be in (0, 1)
+        # decay factor (high alpha -> discounts older observations faster). Must be in (0, 1)
+        self.alpha = 0.1
 
-        # reward configuration 
+        # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
 
@@ -172,21 +173,26 @@ class Ultrasound(SingleArmEnv):
         self.force_out_of_threshold_reward_mul = 10
 
         # desired states
-        self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
+        # Upright probe orientation found from experimenting (x,y,z,w)
+        self.goal_quat = np.array(
+            [-0.69192486,  0.72186726, -0.00514253, -0.01100909])
         self.goal_velocity = 0.04                   # norm of velocity vector
-        self.goal_contact_z_force = 5               # (N)  
-        self.goal_der_contact_z_force = 0           # derivative of contact force   
+        self.goal_contact_z_force = 5               # (N)
+        self.goal_der_contact_z_force = 0           # derivative of contact force
 
         # early termination configuration
         self.pos_error_threshold = 1.0
         self.ori_error_threshold = 0.10
 
         # examination trajectory
-        self.top_torso_offset = 0.039 if use_box_torso else 0.041      # offset from z_center of torso to top of torso
-        self.x_range = 0.15                                 # how large the torso is from center to end in x-direction
-        self.y_range = 0.09 if use_box_torso else 0.05      # how large the torso is from center to end in y-direction
+        # offset from z_center of torso to top of torso
+        self.top_torso_offset = 0.039 if use_box_torso else 0.041
+        # how large the torso is from center to end in x-direction
+        self.x_range = 0.15
+        # how large the torso is from center to end in y-direction
+        self.y_range = 0.09 if use_box_torso else 0.05
         self.grid_pts = 50                                  # how many points in the grid
-                                            
+
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
 
@@ -226,7 +232,6 @@ class Ultrasound(SingleArmEnv):
             camera_widths=camera_widths,
             camera_depths=camera_depths,
         )
-        
 
     def reward(self, action=None):
         """
@@ -241,40 +246,49 @@ class Ultrasound(SingleArmEnv):
 
         reward = 0.
 
-        ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
+        ee_current_ori = convert_quat(
+            self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
         ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
 
         # position
-        self.pos_error = np.square(self.pos_error_mul * (self._eef_xpos[0:-1] - self.traj_pt[0:-1]))
-        self.pos_reward = self.pos_reward_mul * np.exp(-1 * np.linalg.norm(self.pos_error))
+        self.pos_error = np.square(
+            self.pos_error_mul * (self._eef_xpos[0:-1] - self.traj_pt[0:-1]))
+        self.pos_reward = self.pos_reward_mul * \
+            np.exp(-1 * np.linalg.norm(self.pos_error))
 
         # orientation
-        self.ori_error = self.ori_error_mul * distance_quat(ee_current_ori, ee_desired_ori)
+        self.ori_error = self.ori_error_mul * \
+            distance_quat(ee_current_ori, ee_desired_ori)
         self.ori_reward = self.ori_reward_mul * np.exp(-1 * self.ori_error)
 
         # velocity
-        self.vel_error =  np.square(self.vel_error_mul * (self.vel_running_mean - self.goal_velocity))
-        self.vel_reward = self.vel_reward_mul * np.exp(-1 * np.linalg.norm(self.vel_error))
-        
+        self.vel_error = np.square(
+            self.vel_error_mul * (self.vel_running_mean - self.goal_velocity))
+        self.vel_reward = self.vel_reward_mul * \
+            np.exp(-1 * np.linalg.norm(self.vel_error))
+
         # force
-        self.force_error = np.square(self.force_error_mul * (self.z_contact_force_running_mean - self.goal_contact_z_force))
-        self.force_reward = self.force_reward_mul * np.exp(-1 * self.force_error) if self._check_probe_contact_with_torso() else 0
+        self.force_error = np.square(
+            self.force_error_mul * (self.z_contact_force_running_mean - self.goal_contact_z_force))
+        self.force_reward = self.force_reward_mul * \
+            np.exp(-1 * self.force_error) if self._check_probe_contact_with_torso() else 0
 
         # derivative force
-        self.der_force_error = np.square(self.der_force_error_mul * (self.der_z_contact_force - self.goal_der_contact_z_force))
-        self.der_force_reward = self.der_force_reward_mul * np.exp(-1 * self.der_force_error) if self._check_probe_contact_with_torso() else 0
+        self.der_force_error = np.square(
+            self.der_force_error_mul * (self.der_z_contact_force - self.goal_der_contact_z_force))
+        self.der_force_reward = self.der_force_reward_mul * \
+            np.exp(-1 * self.der_force_error) if self._check_probe_contact_with_torso() else 0
 
         # out of threshold
         self.force_out_of_threshold = -1 if self.z_contact_force_running_mean > 10 else 0
-        self.force_out_of_threshold_reward = self.force_out_of_threshold_reward_mul * self.force_out_of_threshold  
-
-
+        self.force_out_of_threshold_reward = self.force_out_of_threshold_reward_mul * \
+            self.force_out_of_threshold
 
         # add rewards
-        reward += (self.pos_reward + self.ori_reward + self.vel_reward + self.force_reward + self.der_force_reward)
+        reward += (self.pos_reward + self.ori_reward +
+                   self.vel_reward + self.force_reward + self.der_force_reward)
 
         return reward
-
 
     def _load_model(self):
         """
@@ -283,7 +297,8 @@ class Ultrasound(SingleArmEnv):
         super()._load_model()
 
         # Adjust base pose accordingly
-        xpos = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])
+        xpos = self.robots[0].robot_model.base_xpos_offset["table"](
+            self.table_full_size[0])
         self.robots[0].robot_model.set_base_xpos(xpos)
 
         # Load model for table top workspace
@@ -293,7 +308,8 @@ class Ultrasound(SingleArmEnv):
         mujoco_arena.set_origin([0, 0, 0])
 
         # Initialize torso object
-        self.torso = SoftBoxObject(name="torso") if self.use_box_torso else SoftTorsoObject(name="torso")
+        self.torso = SoftBoxObject(
+            name="torso") if self.use_box_torso else SoftTorsoObject(name="torso")
 
         if self.torso_solref_randomization:
             # Randomize torso's stiffness and damping (values are taken from my project thesis)
@@ -311,8 +327,8 @@ class Ultrasound(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=[self.torso],
-                x_range=[0, 0], #[-0.12, 0.12],
-                y_range=[0, 0], #[-0.12, 0.12],
+                x_range=[0, 0],  # [-0.12, 0.12],
+                y_range=[0, 0],  # [-0.12, 0.12],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -323,10 +339,9 @@ class Ultrasound(SingleArmEnv):
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(
             mujoco_arena=mujoco_arena,
-            mujoco_robots=[robot.robot_model for robot in self.robots], 
+            mujoco_robots=[robot.robot_model for robot in self.robots],
             mujoco_objects=[self.torso]
         )
-
 
     def _setup_references(self):
         """
@@ -338,8 +353,8 @@ class Ultrasound(SingleArmEnv):
 
         # additional object references from this env
         self.torso_body_id = self.sim.model.body_name2id(self.torso.root_body)
-        self.probe_id = self.sim.model.body_name2id(self.robots[0].gripper.root_body)
-        
+        self.probe_id = self.sim.model.body_name2id(
+            self.robots[0].gripper.root_body)
 
     def _setup_observables(self):
         """
@@ -365,7 +380,8 @@ class Ultrasound(SingleArmEnv):
         sensors = []
 
         # probe information
-        modality = f"{pf}proprio"       # Need to use this modality since proprio obs cannot be empty in GymWrapper
+        # Need to use this modality since proprio obs cannot be empty in GymWrapper
+        modality = f"{pf}proprio"
 
         @sensor(modality=modality)
         def eef_contact_force(obs_cache):
@@ -400,11 +416,11 @@ class Ultrasound(SingleArmEnv):
 
         sensors += [
             eef_contact_force,
-            eef_torque, 
-            eef_vel, 
-            eef_contact_force_z_diff, 
-            eef_contact_derivative_force_z_diff, 
-            eef_vel_diff, 
+            eef_torque,
+            eef_vel,
+            eef_contact_force_z_diff,
+            eef_contact_derivative_force_z_diff,
+            eef_vel_diff,
             eef_pose_diff]
 
         names = [s.__name__ for s in sensors]
@@ -418,7 +434,6 @@ class Ultrasound(SingleArmEnv):
             )
 
         return observables
-
 
     def _reset_internal(self):
         """
@@ -434,9 +449,10 @@ class Ultrasound(SingleArmEnv):
 
             # Loop through all objects and reset their positions
             for obj_pos, _, obj in object_placements.values():
-                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array([0.5, 0.5, -0.5, -0.5])]))
+                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate(
+                    [np.array(obj_pos), np.array([0.5, 0.5, -0.5, -0.5])]))
                 self.sim.forward()      # update sim states
-                
+
         # says if probe has been in touch with torso
         self.has_touched_torso = False
 
@@ -445,11 +461,13 @@ class Ultrasound(SingleArmEnv):
 
         # create trajectory
         self.trajectory = self.get_trajectory()
-        
+
         # initialize trajectory step
-        self.initial_traj_step = np.random.default_rng().uniform(low=0, high=self.num_waypoints - 1)
-        self.traj_step = self.initial_traj_step                                    # step at which to evaluate trajectory. Must be in interval [0, num_waypoints - 1]
-        
+        self.initial_traj_step = np.random.default_rng().uniform(
+            low=0, high=self.num_waypoints - 1)
+        # step at which to evaluate trajectory. Must be in interval [0, num_waypoints - 1]
+        self.traj_step = self.initial_traj_step
+
         # set first trajectory point
         self.traj_pt = self.trajectory.eval(self.traj_step)
         self.traj_pt_vel = self.trajectory.deriv(self.traj_step)
@@ -476,8 +494,8 @@ class Ultrasound(SingleArmEnv):
 
         # intialize derivative of contact force
         self.der_z_contact_force = 0
-        
-        # initialize running mean of velocity 
+
+        # initialize running mean of velocity
         self.vel_running_mean = np.linalg.norm(self.robots[0]._hand_vel)
 
         # initialize running mean of contact force
@@ -492,17 +510,26 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_vel = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_goal_vel = np.array(np.zeros(self.horizon))
             self.data_ee_running_mean_vel = np.array(np.zeros(self.horizon))
-            self.data_ee_quat = np.array(np.zeros((self.horizon, 4)))               # (x,y,z,w)
-            self.data_ee_goal_quat = np.array(np.zeros((self.horizon, 4)))          # (x,y,z,w)
-            self.data_ee_diff_quat = np.array(np.zeros(self.horizon))               # (x,y,z,w)
+            self.data_ee_quat = np.array(
+                np.zeros((self.horizon, 4)))               # (x,y,z,w)
+            self.data_ee_goal_quat = np.array(
+                np.zeros((self.horizon, 4)))          # (x,y,z,w)
+            self.data_ee_diff_quat = np.array(
+                np.zeros(self.horizon))               # (x,y,z,w)
             self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
-            self.data_ee_z_goal_contact_force = np.array(np.zeros(self.horizon))
-            self.data_ee_z_running_mean_contact_force = np.array(np.zeros(self.horizon))
-            self.data_ee_z_derivative_contact_force = np.array(np.zeros(self.horizon))
-            self.data_ee_z_goal_derivative_contact_force = np.array(np.zeros(self.horizon))
+            self.data_ee_z_goal_contact_force = np.array(
+                np.zeros(self.horizon))
+            self.data_ee_z_running_mean_contact_force = np.array(
+                np.zeros(self.horizon))
+            self.data_ee_z_derivative_contact_force = np.array(
+                np.zeros(self.horizon))
+            self.data_ee_z_goal_derivative_contact_force = np.array(
+                np.zeros(self.horizon))
             self.data_is_contact = np.array(np.zeros(self.horizon))
-            self.data_q_pos = np.array(np.zeros((self.horizon, self.robots[0].dof)))
-            self.data_q_torques = np.array(np.zeros((self.horizon, self.robots[0].dof)))
+            self.data_q_pos = np.array(
+                np.zeros((self.horizon, self.robots[0].dof)))
+            self.data_q_torques = np.array(
+                np.zeros((self.horizon, self.robots[0].dof)))
             self.data_time = np.array(np.zeros(self.horizon))
 
             # reward data
@@ -513,8 +540,8 @@ class Ultrasound(SingleArmEnv):
             self.data_der_force_reward = np.array(np.zeros(self.horizon))
 
             # policy/controller data
-            self.data_action = np.array(np.zeros((self.horizon, self.robots[0].action_dim)))
-
+            self.data_action = np.array(
+                np.zeros((self.horizon, self.robots[0].action_dim)))
 
     def _post_action(self, action):
         """
@@ -532,7 +559,8 @@ class Ultrasound(SingleArmEnv):
         reward, done, info = super()._post_action(action)
 
         # Convert to trajectory timstep
-        normalizer = (self.horizon / (self.num_waypoints - 1))                  # equally many timesteps to reach each waypoint
+        # equally many timesteps to reach each waypoint
+        normalizer = (self.horizon / (self.num_waypoints - 1))
         self.traj_step = self.timestep / normalizer + self.initial_traj_step
 
         # update trajectory point
@@ -542,15 +570,18 @@ class Ultrasound(SingleArmEnv):
         self.robots[0].controller.traj_pos = self.traj_pt
 
         # update velocity running mean (simple moving average)
-        self.vel_running_mean += ((np.linalg.norm(self.robots[0]._hand_vel) - self.vel_running_mean) / self.timestep)
+        self.vel_running_mean += ((np.linalg.norm(
+            self.robots[0]._hand_vel) - self.vel_running_mean) / self.timestep)
 
         # update derivative of contact force
         z_contact_force = self.sim.data.cfrc_ext[self.probe_id][-1]
-        self.der_z_contact_force = (z_contact_force - self.prev_z_contact_force) / self.control_timestep
+        self.der_z_contact_force = (
+            z_contact_force - self.prev_z_contact_force) / self.control_timestep
         self.prev_z_contact_force = z_contact_force
 
         # update contact force running mean (exponential moving average)
-        self.z_contact_force_running_mean = self.alpha * z_contact_force + (1 - self.alpha) * self.z_contact_force_running_mean
+        self.z_contact_force_running_mean = self.alpha * z_contact_force + \
+            (1 - self.alpha) * self.z_contact_force_running_mean
 
         # check for early termination
         if self.early_termination:
@@ -563,47 +594,69 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_goal_pos[self.timestep - 1] = self.traj_pt
             self.data_ee_vel[self.timestep - 1] = self.robots[0]._hand_vel
             self.data_ee_goal_vel[self.timestep - 1] = self.goal_velocity
-            self.data_ee_running_mean_vel[self.timestep -1] = self.vel_running_mean
+            self.data_ee_running_mean_vel[self.timestep -
+                                          1] = self.vel_running_mean
             self.data_ee_quat[self.timestep - 1] = self._eef_xquat
             self.data_ee_goal_quat[self.timestep - 1] = self.goal_quat
-            self.data_ee_diff_quat[self.timestep - 1] = distance_quat(convert_quat(self._eef_xquat, to="wxyz"), convert_quat(self.goal_quat, to="wxyz"))
-            self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
-            self.data_ee_z_goal_contact_force[self.timestep - 1] = self.goal_contact_z_force
-            self.data_ee_z_running_mean_contact_force[self.timestep - 1] = self.z_contact_force_running_mean
-            self.data_ee_z_derivative_contact_force[self.timestep - 1] = self.der_z_contact_force
-            self.data_ee_z_goal_derivative_contact_force[self.timestep - 1] = self.goal_der_contact_z_force
-            self.data_is_contact[self.timestep - 1] = self._check_probe_contact_with_torso()
-            self.data_q_pos[self.timestep - 1] = self.robots[0]._joint_positions
+            self.data_ee_diff_quat[self.timestep - 1] = distance_quat(convert_quat(
+                self._eef_xquat, to="wxyz"), convert_quat(self.goal_quat, to="wxyz"))
+            self.data_ee_z_contact_force[self.timestep -
+                                         1] = self.sim.data.cfrc_ext[self.probe_id][-1]
+            self.data_ee_z_goal_contact_force[self.timestep -
+                                              1] = self.goal_contact_z_force
+            self.data_ee_z_running_mean_contact_force[self.timestep -
+                                                      1] = self.z_contact_force_running_mean
+            self.data_ee_z_derivative_contact_force[self.timestep -
+                                                    1] = self.der_z_contact_force
+            self.data_ee_z_goal_derivative_contact_force[self.timestep -
+                                                         1] = self.goal_der_contact_z_force
+            self.data_is_contact[self.timestep -
+                                 1] = self._check_probe_contact_with_torso()
+            self.data_q_pos[self.timestep -
+                            1] = self.robots[0]._joint_positions
             self.data_q_torques[self.timestep - 1] = self.robots[0].torques
-            self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon * 100                         # percentage of completed episode
+            # percentage of completed episode
+            self.data_time[self.timestep -
+                           1] = (self.timestep - 1) / self.horizon * 100
 
             # reward data
             self.data_pos_reward[self.timestep - 1] = self.pos_reward
             self.data_ori_reward[self.timestep - 1] = self.ori_reward
             self.data_vel_reward[self.timestep - 1] = self.vel_reward
             self.data_force_reward[self.timestep - 1] = self.force_reward
-            self.data_der_force_reward[self.timestep - 1] = self.der_force_reward
+            self.data_der_force_reward[self.timestep -
+                                       1] = self.der_force_reward
 
             # policy/controller data
             self.data_action[self.timestep - 1] = action
-        
+
         # save data
         if done and self.save_data:
             # simulation data
             sim_data_fldr = "simulation_data"
             self._save_data(self.data_ee_pos, sim_data_fldr, "ee_pos")
-            self._save_data(self.data_ee_goal_pos, sim_data_fldr, "ee_goal_pos")
+            self._save_data(self.data_ee_goal_pos,
+                            sim_data_fldr, "ee_goal_pos")
             self._save_data(self.data_ee_vel, sim_data_fldr, "ee_vel")
-            self._save_data(self.data_ee_goal_vel, sim_data_fldr, "ee_goal_vel")
-            self._save_data(self.data_ee_running_mean_vel, sim_data_fldr, "ee_running_mean_vel")
+            self._save_data(self.data_ee_goal_vel,
+                            sim_data_fldr, "ee_goal_vel")
+            self._save_data(self.data_ee_running_mean_vel,
+                            sim_data_fldr, "ee_running_mean_vel")
             self._save_data(self.data_ee_quat, sim_data_fldr, "ee_quat")
-            self._save_data(self.data_ee_goal_quat, sim_data_fldr, "ee_goal_quat")
-            self._save_data(self.data_ee_diff_quat, sim_data_fldr, "ee_diff_quat")
-            self._save_data(self.data_ee_z_contact_force, sim_data_fldr, "ee_z_contact_force")
-            self._save_data(self.data_ee_z_goal_contact_force, sim_data_fldr, "ee_z_goal_contact_force")
-            self._save_data(self.data_ee_z_running_mean_contact_force, sim_data_fldr, "ee_z_running_mean_contact_force")
-            self._save_data(self.data_ee_z_derivative_contact_force, sim_data_fldr, "ee_z_derivative_contact_force")
-            self._save_data(self.data_ee_z_goal_derivative_contact_force, sim_data_fldr, "ee_z_goal_derivative_contact_force")
+            self._save_data(self.data_ee_goal_quat,
+                            sim_data_fldr, "ee_goal_quat")
+            self._save_data(self.data_ee_diff_quat,
+                            sim_data_fldr, "ee_diff_quat")
+            self._save_data(self.data_ee_z_contact_force,
+                            sim_data_fldr, "ee_z_contact_force")
+            self._save_data(self.data_ee_z_goal_contact_force,
+                            sim_data_fldr, "ee_z_goal_contact_force")
+            self._save_data(self.data_ee_z_running_mean_contact_force,
+                            sim_data_fldr, "ee_z_running_mean_contact_force")
+            self._save_data(self.data_ee_z_derivative_contact_force,
+                            sim_data_fldr, "ee_z_derivative_contact_force")
+            self._save_data(self.data_ee_z_goal_derivative_contact_force,
+                            sim_data_fldr, "ee_z_goal_derivative_contact_force")
             self._save_data(self.data_is_contact, sim_data_fldr, "is_contact")
             self._save_data(self.data_q_pos, sim_data_fldr, "q_pos")
             self._save_data(self.data_q_torques, sim_data_fldr, "q_torques")
@@ -615,14 +668,13 @@ class Ultrasound(SingleArmEnv):
             self._save_data(self.data_ori_reward, reward_data_fdlr, "ori")
             self._save_data(self.data_vel_reward, reward_data_fdlr, "vel")
             self._save_data(self.data_force_reward, reward_data_fdlr, "force")
-            self._save_data(self.data_der_force_reward, reward_data_fdlr, "derivative_force")
+            self._save_data(self.data_der_force_reward,
+                            reward_data_fdlr, "derivative_force")
 
             # policy/controller data
             self._save_data(self.data_action, "policy_data", "action")
 
-
         return reward, done, info
-
 
     def visualize(self, vis_settings):
         """
@@ -634,10 +686,8 @@ class Ultrasound(SingleArmEnv):
         # Run superclass method first
         super().visualize(vis_settings=vis_settings)
 
-
     def _check_success(self):
         return False
-
 
     def _check_terminated(self):
         """
@@ -666,7 +716,8 @@ class Ultrasound(SingleArmEnv):
 
         # Prematurely terminate if probe deviates from desired orientation when touching probe
         if self._check_probe_contact_with_torso() and self.ori_error > self.ori_error_threshold:
-            print(40 * '-' + " (TOUCHING BODY) PROBE DEVIATES FROM DESIRED ORIENTATION " + 40 * '-')
+            print(
+                40 * '-' + " (TOUCHING BODY) PROBE DEVIATES FROM DESIRED ORIENTATION " + 40 * '-')
             terminated = True
 
         # Prematurely terminate if probe loses contact with torso
@@ -675,7 +726,6 @@ class Ultrasound(SingleArmEnv):
             terminated = True
 
         return terminated
-
 
     def _get_contacts_objects(self, model):
         """
@@ -693,16 +743,17 @@ class Ultrasound(SingleArmEnv):
         """
         # Make sure model is MujocoModel type
         assert isinstance(model, MujocoModel), \
-            "Inputted model must be of type MujocoModel; got type {} instead!".format(type(model))
+            "Inputted model must be of type MujocoModel; got type {} instead!".format(
+                type(model))
         contact_set = set()
         for contact in self.sim.data.contact[: self.sim.data.ncon]:
             # check contact geom in geoms; add to contact set if match is found
-            g1, g2 = self.sim.model.geom_id2name(contact.geom1), self.sim.model.geom_id2name(contact.geom2)
+            g1, g2 = self.sim.model.geom_id2name(
+                contact.geom1), self.sim.model.geom_id2name(contact.geom2)
             if g1 in model.contact_geoms or g2 in model.contact_geoms:
                 contact_set.add(contact)
 
         return contact_set
-
 
     def _check_probe_contact_with_upper_part_torso(self):
         """
@@ -710,39 +761,38 @@ class Ultrasound(SingleArmEnv):
 
         Returns:
             bool: True if probe both is in contact with upper part of torso and inside distance threshold from the torso center.
-        """     
+        """
         # check for contact only if probe is in contact with upper part and close to torso center
-        if  self._eef_xpos[-1] >= self._torso_xpos[-1] and np.linalg.norm(self._eef_xpos[:2] - self._torso_xpos[:2]) < 0.14:
+        if self._eef_xpos[-1] >= self._torso_xpos[-1] and np.linalg.norm(self._eef_xpos[:2] - self._torso_xpos[:2]) < 0.14:
             return self._check_probe_contact_with_torso()
 
         return False
-
 
     def _check_probe_contact_with_torso(self):
         """
         Check if the probe is in contact with the torso.
 
         NOTE This method utilizes the autogenerated geom names for MuJoCo-native composite objects
-        
+
         Returns:
             bool: True if probe is in contact with torso
-        """     
+        """
         gripper_contacts = self._get_contacts_objects(self.robots[0].gripper)
         reg_ex = "[G]\d+[_]\d+[_]\d+$"
 
         # check contact with torso geoms based on autogenerated names
         for contact in gripper_contacts:
-            g1, g2 = self.sim.model.geom_id2name(contact.geom1), self.sim.model.geom_id2name(contact.geom2) 
+            g1, g2 = self.sim.model.geom_id2name(
+                contact.geom1), self.sim.model.geom_id2name(contact.geom2)
             match1 = re.search(reg_ex, g1)
             match2 = re.search(reg_ex, g2)
             if match1 != None or match2 != None:
                 contact_normal_axis = contact.frame[:3]
                 self.has_touched_torso = True
                 return True
-    
+
         return False
 
-    
     def _check_probe_contact_with_table(self):
         """
         Check if the probe is in contact with the tabletop.
@@ -751,7 +801,6 @@ class Ultrasound(SingleArmEnv):
             bool: True if probe is in contact with table
         """
         return self.check_contact(self.robots[0].gripper, "table_collision")
-    
 
     def get_trajectory(self):
         """
@@ -770,17 +819,16 @@ class Ultrasound(SingleArmEnv):
             start_point = [0.062, -0.020,  0.896]
             end_point = [-0.032, -0.075,  0.896]
 
-            #start_point = [grid[0, 0], grid[1, 4], self._torso_xpos[-1] + self.top_torso_offset]
-            #end_point = [grid[0, int(self.grid_pts / 2) - 1], grid[1, 5], self._torso_xpos[-1] + self.top_torso_offset]
-        else:   
+            # start_point = [grid[0, 0], grid[1, 4], self._torso_xpos[-1] + self.top_torso_offset]
+            # end_point = [grid[0, int(self.grid_pts / 2) - 1], grid[1, 5], self._torso_xpos[-1] + self.top_torso_offset]
+        else:
             start_point = self._get_waypoint(grid)
             end_point = self._get_waypoint(grid)
-        
+
         milestones = np.array([start_point, end_point])
         self.num_waypoints = np.size(milestones, 0)
 
         return trajectory.Trajectory(milestones=milestones)
-
 
     def _get_torso_grid(self):
         """
@@ -791,15 +839,16 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (numpy.array):  grid. First row contains x-coordinates and the second row contains y-coordinates.
         """
-        x = np.linspace(-self.x_range + self._torso_xpos[0] + 0.03, self.x_range + self._torso_xpos[0], num=self.grid_pts)  # add offset in negative range due to weird robot angles close to robot base
-        y = np.linspace(-self.y_range + self._torso_xpos[1], self.y_range + self._torso_xpos[1], num=self.grid_pts)
+        x = np.linspace(-self.x_range + self._torso_xpos[0] + 0.03, self.x_range + self._torso_xpos[0],
+                        num=self.grid_pts)  # add offset in negative range due to weird robot angles close to robot base
+        y = np.linspace(-self.y_range +
+                        self._torso_xpos[1], self.y_range + self._torso_xpos[1], num=self.grid_pts)
 
         x = np.array([x])
         y = np.array([y])
 
         return np.concatenate((x, y))
 
-    
     def _get_waypoint(self, grid):
         """
         Extracts a random waypoint from the grid.
@@ -814,8 +863,7 @@ class Ultrasound(SingleArmEnv):
         z_pos = self._torso_xpos[-1] + self.top_torso_offset
 
         return np.array([x_pos, y_pos, z_pos])
-        
-    
+
     def _get_initial_qpos(self):
         """
         Calculates the initial joint position for the robot based on the initial desired pose (self.traj_pt, self.goal_quat).
@@ -850,7 +898,6 @@ class Ultrasound(SingleArmEnv):
             sol = robot.ikine_min(T, q0=self.robots[0].init_qpos)
             return sol.q
 
-
     def _convert_robosuite_to_toolbox_xpos(self, pos):
         """
         Converts origin used in robosuite to origin used for robotics toolbox. Also transforms robosuite world frame (vectors x, y, z) to
@@ -862,17 +909,17 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (np.array):  position (x,y,z) given in robotics toolbox coordinates and frame
         """
-        xpos_offset = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])[0]
+        xpos_offset = self.robots[0].robot_model.base_xpos_offset["table"](
+            self.table_full_size[0])[0]
         zpos_offset = self.robots[0].robot_model.top_offset[-1] - 0.016
 
-        # the numeric offset values have been found empirically, where they are chosen so that 
+        # the numeric offset values have been found empirically, where they are chosen so that
         # self._eef_xpos matches the desired position.
         if self.robots[0].name == "UR5e":
-            return np.array([-pos[0] + xpos_offset + 0.08, -pos[1] + 0.025, pos[2] - zpos_offset + 0.15]) 
+            return np.array([-pos[0] + xpos_offset + 0.08, -pos[1] + 0.025, pos[2] - zpos_offset + 0.15])
 
         if self.robots[0].name == "Panda":
             return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.111])
-
 
     def _add_noise_to_pos(self, init_pos):
         """
@@ -892,7 +939,6 @@ class Ultrasound(SingleArmEnv):
         z = init_pos[2] + z_noise[0]
 
         return np.array([x, y, z])
-
 
     def _save_data(self, data, fldr, filename):
         """
@@ -916,7 +962,6 @@ class Ultrasound(SingleArmEnv):
 
         pd.DataFrame(data).to_csv(path, header=None, index=None)
 
-
     @property
     def _torso_xpos(self):
         """
@@ -925,4 +970,4 @@ class Ultrasound(SingleArmEnv):
         Returns:
             np.array: torso pos (x,y,z)
         """
-        return np.array(self.sim.data.body_xpos[self.torso_body_id]) 
+        return np.array(self.sim.data.body_xpos[self.torso_body_id])
