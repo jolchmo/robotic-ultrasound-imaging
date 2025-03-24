@@ -20,7 +20,7 @@ from robosuite.models.base import MujocoModel
 
 import robosuite.utils.transform_utils as T
 
-from my_models.objects import SoftTorsoObject, BoxObject, SoftBoxObject
+from my_models.objects import SoftTorsoObject, BoxObject, SoftBoxObject, ClientBodyObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
 from utils.quaternion import distance_quat, difference_quat
@@ -89,7 +89,7 @@ class Ultrasound(SingleArmEnv):
         early_termination (bool): If True, episode is allowed to finish early.
         save_data (bool): If True, data from the episode is collected and saved.
         deterministic_trajectory (bool): If True, chooses a deterministic trajectory which goes along the x-axis of the torso.
-        torso_solref_randomization (bool): If True, randomize the stiffness and damping parameter of the torso. 
+        torso_solref_randomization (bool): If True, randomize the stiffness and damping parameter of the torso.
         initial_probe_pos_randomization (bool): If True, Gaussian noise will be added to the initial position of the probe.
         use_box_torso (bool): If True, use a box shaped soft body. Else, use a cylinder shaped soft body.
     Raises:
@@ -186,7 +186,7 @@ class Ultrasound(SingleArmEnv):
 
         # examination trajectory
         # offset from z_center of torso to top of torso
-        self.top_torso_offset = 0.039 if use_box_torso else 0.041
+        # self.top_torso_offset = 0.039 if use_box_torso else 0.041
         # how large the torso is from center to end in x-direction
         self.x_range = 0.15
         # how large the torso is from center to end in y-direction
@@ -233,6 +233,7 @@ class Ultrasound(SingleArmEnv):
             camera_depths=camera_depths,
         )
 
+    # 关键：项目REWARD
     def reward(self, action=None):
         """
         Reward function for the task.
@@ -285,8 +286,8 @@ class Ultrasound(SingleArmEnv):
             self.force_out_of_threshold
 
         # add rewards
-        reward += (self.pos_reward + self.ori_reward +
-                   self.vel_reward + self.force_reward + self.der_force_reward)
+        # 5+1+1
+        reward += (self.pos_reward + self.ori_reward + self.vel_reward + self.force_reward + self.der_force_reward)
 
         return reward
 
@@ -308,33 +309,35 @@ class Ultrasound(SingleArmEnv):
         mujoco_arena.set_origin([0, 0, 0])
 
         # Initialize torso object
-        self.torso = SoftBoxObject(
-            name="torso") if self.use_box_torso else SoftTorsoObject(name="torso")
+        # self.torso = SoftBoxObject(
+        #     name="torso") if self.use_box_torso else SoftTorsoObject(name="torso")
+        self.torso = ClientBodyObject(name="body")
 
-        if self.torso_solref_randomization:
-            # Randomize torso's stiffness and damping (values are taken from my project thesis)
-            stiffness = np.random.randint(1300, 1600)
-            damping = np.random.randint(17, 41)
+        # if self.torso_solref_randomization:
+        #     # Randomize torso's stiffness and damping (values are taken from my project thesis)
+        #     stiffness = np.random.randint(1300, 1600)
+        #     damping = np.random.randint(17, 41)
 
-            self.torso.set_damping(damping)
-            self.torso.set_stiffness(stiffness)
+        #     self.torso.set_damping(damping)
+        #     self.torso.set_stiffness(stiffness)
 
         # Create placement initializer
-        if self.placement_initializer is not None:
-            self.placement_initializer.reset()
-            self.placement_initializer.add_objects(self.torso)
-        else:
-            self.placement_initializer = UniformRandomSampler(
-                name="ObjectSampler",
-                mujoco_objects=[self.torso],
-                x_range=[0, 0],  # [-0.12, 0.12],
-                y_range=[0, 0],  # [-0.12, 0.12],
-                rotation=None,
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=True,
-                reference_pos=self.table_offset,
-                z_offset=0.005,
-            )
+        # if self.placement_initializer is not None:
+        #     self.placement_initializer.reset()
+        #     self.placement_initializer.add_objects(self.torso)
+        # else:
+
+        self.placement_initializer = UniformRandomSampler(
+            name="ObjectSampler",
+            mujoco_objects=[self.torso],
+            x_range=[0, 0],  # [-0.12, 0.12],
+            y_range=[0, 0],  # [-0.12, 0.12],
+            rotation=None,
+            ensure_object_boundary_in_range=False,
+            ensure_valid_placement=True,
+            reference_pos=self.table_offset,
+            z_offset=0.01,
+        )
 
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(
@@ -449,8 +452,9 @@ class Ultrasound(SingleArmEnv):
 
             # Loop through all objects and reset their positions
             for obj_pos, _, obj in object_placements.values():
+                # 关键：放置物体位置
                 self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate(
-                    [np.array(obj_pos), np.array([0.5, 0.5, -0.5, -0.5])]))
+                    [np.array(obj_pos), np.array([0, 0, 0, 1])]))
                 self.sim.forward()      # update sim states
 
         # says if probe has been in touch with torso
@@ -580,8 +584,7 @@ class Ultrasound(SingleArmEnv):
         self.prev_z_contact_force = z_contact_force
 
         # update contact force running mean (exponential moving average)
-        self.z_contact_force_running_mean = self.alpha * z_contact_force + \
-            (1 - self.alpha) * self.z_contact_force_running_mean
+        self.z_contact_force_running_mean = self.alpha * z_contact_force + (1 - self.alpha) * self.z_contact_force_running_mean
 
         # check for early termination
         if self.early_termination:
@@ -860,7 +863,8 @@ class Ultrasound(SingleArmEnv):
         """
         x_pos = np.random.choice(grid[0])
         y_pos = np.random.choice(grid[1])
-        z_pos = self._torso_xpos[-1] + self.top_torso_offset
+        z_pos = self._torso_xpos[-1] + 0.05
+        # z_pos = self._torso_xpos[-1]
 
         return np.array([x_pos, y_pos, z_pos])
 
@@ -888,9 +892,9 @@ class Ultrasound(SingleArmEnv):
         if self.robots[0].name == "UR5e":
             robot = rtb.models.DH.UR5()
             sol = robot.ikine_min(T, q0=self.robots[0].init_qpos)
-
             # flip last joint around (pi)
             sol.q[-1] -= np.pi
+            print("Initial joint positions: ", sol.q)
             return sol.q
 
         elif self.robots[0].name == "Panda":

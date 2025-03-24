@@ -3,6 +3,16 @@ import numpy as np
 from robosuite.models.objects import MujocoXMLObject
 from robosuite.utils.mjcf_utils import array_to_string
 
+
+class ClientBodyObject(MujocoXMLObject):
+    """
+    Client body object
+    """
+
+    def __init__(self, name):
+        super().__init__("my_models/assets/objects/client_body.xml", name=name)
+
+
 class SoftTorsoObject(MujocoXMLObject):
     """
     Soft torso object
@@ -19,10 +29,8 @@ class SoftTorsoObject(MujocoXMLObject):
         if self.stiffness is not None:
             self.set_stiffness(stiffness)
 
-
     def _get_composite_element(self):
         return self._obj.find("./composite")
-
 
     def set_damping(self, damping):
         """
@@ -38,7 +46,6 @@ class SoftTorsoObject(MujocoXMLObject):
 
         solref = np.array([stiffness, -damping])
         composite.set('solrefsmooth', array_to_string(solref))
-
 
     def set_stiffness(self, stiffness):
         """
@@ -55,7 +62,7 @@ class SoftTorsoObject(MujocoXMLObject):
         solref = np.array([-stiffness, damping])
         composite.set('solrefsmooth', array_to_string(solref))
 
-    
+
 class SoftBoxObject(MujocoXMLObject):
     """
     Soft box object
@@ -72,10 +79,8 @@ class SoftBoxObject(MujocoXMLObject):
         if self.stiffness is not None:
             self.set_stiffness(stiffness)
 
-
     def _get_composite_element(self):
         return self._obj.find("./composite")
-
 
     def set_damping(self, damping):
         """
@@ -91,7 +96,6 @@ class SoftBoxObject(MujocoXMLObject):
 
         solref = np.array([stiffness, -damping])
         composite.set('solrefsmooth', array_to_string(solref))
-
 
     def set_stiffness(self, stiffness):
         """

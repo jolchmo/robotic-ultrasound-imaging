@@ -9,8 +9,11 @@ env_us/
 #data
 src/hmfc_test_data/
 
+#test
+test.py
 
-
+#train checkpoint
+src/checkpoints/
 
 # Code used for testing out things
 testing/

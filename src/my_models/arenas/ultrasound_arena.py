@@ -22,7 +22,8 @@ class UltrasoundArena(Arena):
         table_friction=(1, 0.005, 0.0001),
         table_offset=(0, 0, 0.8),
         has_legs=True,
-        xml="my_models/assets/arenas/ultrasound_arena.xml",
+        # xml="my_models/assets/arenas/ultrasound_arena.xml",
+        xml="my_models/assets/arenas/scene.xml",
     ):
         super().__init__(xml)
 
