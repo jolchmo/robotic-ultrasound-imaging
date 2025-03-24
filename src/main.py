@@ -7,7 +7,12 @@ from my_environments import Ultrasound, HMFC
 from my_models.grippers import UltrasoundProbeGripper
 from utils.common import register_gripper
 import utils.plot as plt
-import utils.error as error 
+import utils.error as error
+
+from stable_baselines3 import PPO
+import yaml
+import os
+
 
 register_env(Ultrasound)
 register_env(HMFC)
@@ -20,7 +25,7 @@ def run_simulation():
     env_id = "Ultrasound"
 
     env_options = {}
-    env_options["robots"] = "Panda"
+    env_options["robots"] = "UR5e"
     env_options["gripper_types"] = "UltrasoundProbeGripper"
     env_options["controller_configs"] = {
         "type": "OSC_POSE",
@@ -54,7 +59,6 @@ def run_simulation():
     env_options["torso_solref_randomization"] = False
     env_options["initial_probe_pos_randomization"] = False
     env_options["deterministic_trajectory"] = False
-    env_options["use_box_torso"] = True
 
     env = suite.make(env_id, **env_options)
 
@@ -63,10 +67,20 @@ def run_simulation():
 
     done = False
     ret = 0.
-    
+    with open("rl_config.yaml", 'r') as stream:
+        config = yaml.safe_load(stream)
+    file_handling = config["file_handling"]
+
+    load_model_folder = file_handling["load_model_folder"]
+    # load_model_filename = file_handling["load_model_filename"]
+    load_model_filename = "test_720000_steps"
+
+    load_model_path = os.path.join(load_model_folder, load_model_filename)
+    model = PPO.load(load_model_path, env)
+
     for t in range(env.horizon):
-        action = [0.0, 0, 0, 0, 0, 0]
-        obs, reward, done, _ = env.step(action) # play action
+        action, _states = model.predict(obs)
+        obs, reward, done, _ = env.step(action)  # play action
         ret += reward
         env.render()
         if done:
@@ -103,10 +117,10 @@ def test_hmfc():
     obs = env.reset()
     done = False
     ret = 0.
-    
+
     for t in range(env.horizon):
         action = []
-        obs, reward, done, _ = env.step(action) # play action
+        obs, reward, done, _ = env.step(action)  # play action
         env.render()
         if done:
             env.close()
@@ -115,11 +129,11 @@ def test_hmfc():
 
 
 ## SIMULATION TEST ##
-#run_simulation()
-#test_hmfc()
+run_simulation()
+# test_hmfc()
 
 ## PLOTTING ##
-#plt.plot_sim_data("tracking", "test", True)
-#plt.plot_training_rew_mean("training_rew_mean/tracking.csv", "training_rew_mean/variable_z.csv", "training_rew_mean/wrench.csv")
-#error.calculate_error_metrics("variable_z")
-#plt.plot_hmfc_data(1)
+# plt.plot_sim_data("tracking", "test", True)
+# plt.plot_training_rew_mean("training_rew_mean/tracking.csv", "training_rew_mean/variable_z.csv", "training_rew_mean/wrench.csv")
+# error.calculate_error_metrics("variable_z")
+# plt.plot_hmfc_data(1)

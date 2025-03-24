@@ -4,8 +4,9 @@ training: True   # Whether to train a model or not
 # Settings for stable-baselines RL algorithm
 sb_config:
   total_timesteps: 40.0e+6
-  check_pt_interval: 1.0e+6
-  num_cpu: 1
+  # 当check_pt_interval * num_cpu *10个total_timesteps = 8w 步(5个iter)后，保存模型
+  check_pt_interval: 1.0e+4
+  num_cpu: 6
 
 # Policy settings
 sb_policy:
@@ -17,10 +18,11 @@ sb_policy:
 # Specify environment
 robosuite:
   env_id: "Ultrasound"
-  robots: "Tendon"
+  # robots: "Tendon"
+  robots: "UR5e"
   use_camera_obs: False
   use_object_obs: False   # Torso obs
-  has_renderer: True
+  has_renderer: False
   has_offscreen_renderer: False
   render_camera: null
   control_freq: 500
@@ -52,9 +54,9 @@ robosuite:
   early_termination: True
   save_data: False
   deterministic_trajectory: False
-  torso_solref_randomization: True
+  torso_solref_randomization: False
   initial_probe_pos_randomization: True
-  use_box_torso: True
+  # use_box_torso: True
 
 # Settings used for file handling and logging (save/load destination etc)
 file_handling:

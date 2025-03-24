@@ -130,10 +130,7 @@ if __name__ == '__main__':
 
     # RL pipeline
     if training:
-        # env = SubprocVecEnv([make_robosuite_env(env_id, env_options, i, seed) for i in range(num_cpu)])
-
-        env = SubprocVecEnv(
-            [make_robosuite_env(env_id, env_options, i, seed) for i in range(2)])
+        env = SubprocVecEnv([make_robosuite_env(env_id, env_options, i, seed) for i in range(num_cpu)])
 
         # Create callback
         checkpoint_callback = CheckpointCallback(save_freq=check_pt_interval, save_path='./checkpoints/',

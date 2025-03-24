@@ -897,6 +897,13 @@ class Ultrasound(SingleArmEnv):
             print("Initial joint positions: ", sol.q)
             return sol.q
 
+        elif self.robots[0].name == "Tendon":
+            # robot = rtb.models.DH.Tendon()
+            # sol = robot.ikine_min(T, q0=self.robots[0].init_qpos)
+            # TODO: 修正
+            return [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            # return sol.q
+
         elif self.robots[0].name == "Panda":
             robot = rtb.models.DH.Panda()
             sol = robot.ikine_min(T, q0=self.robots[0].init_qpos)
@@ -924,6 +931,10 @@ class Ultrasound(SingleArmEnv):
 
         if self.robots[0].name == "Panda":
             return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.111])
+
+        if self.robots[0].name == "Tendon":
+            # TODO: 修正
+            return np.array([-pos[0] + xpos_offset + 0.08, -pos[1] + 0.025, pos[2] - zpos_offset + 0.15])
 
     def _add_noise_to_pos(self, init_pos):
         """
