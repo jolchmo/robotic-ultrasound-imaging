@@ -1,11 +1,15 @@
 <mujoco model="client_body">
+  <compiler inertiafromgeom='true' angle='degree'/>
+
   <asset>
     <mesh name="body" file="meshes/human_body.STL" scale="1 1 1"/>
+    <texture file="../textures/skin.png" type="2d" name="skin-tex"/>
+    <material name="body_mat" reflectance="0.5" texrepeat="1 1" texture="skin-tex"/>
   </asset>
   <worldbody>
     <body>
       <body name="object">
-        <geom mesh="body" type="mesh" mass="100" density="100" group="0"/>
+        <geom name="body" mesh="body" type="mesh" density="1050" material="body_mat" contype="1" conaffinity="1" group="0"/>
         </body>
       <site rgba="1 0 0 1" size="0.05" pos="0. 0. -0.15"  name="bottom_site"/>
       <site rgba="0 1 0 1" size="0.05" pos="0. 0. 0.15" name="top_site"/>

@@ -33,3 +33,4 @@ simulation_data/
 trained_models/
 policy_data/
 error_data/
+src/my_models/assets/objects/meshes/human_body.STL
