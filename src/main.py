@@ -1,139 +1,194 @@
-import robosuite as suite
+import numpy as np
+import time
 
-from robosuite.environments.base import register_env
-import robosuite.utils.transform_utils as T
+import mujoco
+import mujoco.viewer
 
-from my_environments import Ultrasound, HMFC
-from my_models.grippers import UltrasoundProbeGripper
-from utils.common import register_gripper
-import utils.plot as plt
-import utils.error as error
+from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.monitor import Monitor
+
+from my_environments import BasicEnv, visual_workspace
 
 from stable_baselines3 import PPO
-import yaml
-import os
+from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import BaseCallback
+
+import matplotlib.pyplot as plt
+import argparse
 
 
-register_env(Ultrasound)
-register_env(HMFC)
-register_gripper(UltrasoundProbeGripper)
+def make_env(xml):
+    def _thunk():
+        env = BasicEnv(xml)
+        env = Monitor(env)
+        env.seed(42)
+        return env
+    return _thunk
 
 
-## Simulation ##
+if __name__ == '__main__':
+    # env = BasicEnv("../robosuite/robosuite/models/assets/robots/tendon/robot.xml")
+    # reachable_points = env.sample_workspace()
+    # np.save("waypoint.npy", reachable_points)
+    # exit(0)
+    # 创建解析器
+    parser = argparse.ArgumentParser(description="A program with a train flag.")
+    parser.add_argument('-tr', action='store_true', default=False, help='Enable training mode')
+    parser.add_argument('-l', type=str, default=None, help="load model name")
+    parser.add_argument('-s', type=str, default=None, help="save model name")
+    parser.add_argument('-ts', type=lambda x: int(float(x)), default=1e6, help="total timestep")
+    parser.add_argument('-lr', type=float, default=3e-4, help='learning rate')
+    # 解析参数
+    args = parser.parse_args()
 
-def run_simulation():
-    env_id = "Ultrasound"
+    # assert 后面的东西要为True
+    if args.tr and not args.l:
+        print('train without loading previous model?')
+        if input('confirm(y/n)').lower() == 'y':
+            pass
+        else:
+            exit(0)
+    assert not (args.tr == True and args.s == None), "Training model,please set the name of saving model"
+    assert not (args.tr == False and args.l == None), "Testing model,please set the name of loading model"
 
-    env_options = {}
-    env_options["robots"] = "UR5e"
-    env_options["gripper_types"] = "UltrasoundProbeGripper"
-    env_options["controller_configs"] = {
-        "type": "OSC_POSE",
-        "input_max": 1,
-        "input_min": -1,
-        "output_max": [0.05, 0.05, 0.05, 0.5, 0.5, 0.5],
-        "output_min": [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5],
-        "kp": 300,
-        "damping_ratio": 1,
-        "impedance_mode": "fixed",
-        "kp_limits": [0, 500],
-        "kp_input_max": 1,
-        "kp_input_min": 0,
-        "damping_ratio_limits": [0, 2],
-        "position_limits": None,
-        "orientation_limits": None,
-        "uncouple_pos_ori": True,
-        "control_delta": True,
-        "interpolation": None,
-        "ramp_ratio": 0.2
-    }
-    env_options["control_freq"] = 500
-    env_options["has_renderer"] = True
-    env_options["has_offscreen_renderer"] = False
-    env_options["render_camera"] = None
-    env_options["use_camera_obs"] = False
-    env_options["use_object_obs"] = False
-    env_options["horizon"] = 1000
-    env_options["early_termination"] = False
-    env_options["save_data"] = False
-    env_options["torso_solref_randomization"] = False
-    env_options["initial_probe_pos_randomization"] = False
-    env_options["deterministic_trajectory"] = False
+    xml_path = "../robosuite/robosuite/models/assets/robots/tendon/robot.xml"
+    model_policy = "PPO"
 
-    env = suite.make(env_id, **env_options)
+    IsTraining = args.tr
+    IsTesting = not IsTraining
+    IsRender = not IsTraining
 
-    # reset the environment to prepare for a rollout
+    if args.l:
+        IsLoadModel = True
+        load_model_name = args.l
+    else:
+        IsLoadModel = False
+
+    save_model_name = args.s
+
+    print(f"------------------Training---------------------") if IsTraining else print(f"---------------------Testing:-------------------")
+
+    if IsTraining:
+        num_cpu = 16
+        env = SubprocVecEnv([make_env(xml_path) for i in range(num_cpu)])
+
+    if IsTesting:
+        env = BasicEnv(xml_path)
+
+    if IsLoadModel or IsTesting:
+        try:
+            model = PPO.load(f"./weights/{model_policy}/{load_model_name}", env=env, verbose=1)
+            # 打印当前学习率
+        except Exception as e:
+            Exception(f"Error loading model: {e}")
+    else:
+        policy_kwargs = dict(net_arch=dict(
+            pi=[64, 64],  # actor 网络的隐藏层结构
+            vf=[128, 128]  # critic 网络的隐藏层结构
+        ))
+        model = PPO(
+            policy="MlpPolicy",  # 策略類型，可以是 "MlpPolicy"、"CnnPolicy" 等
+            policy_kwargs=policy_kwargs,  # 策略的網絡結構
+            env=env,              # 你的環境
+            learning_rate=args.lr,  # 學習率，默認為 3e-4
+            n_steps=2048,         # n_steps 决定了收集多少经验
+            # episode(一次完整的start->done)
+            # 而iteration 通常指一次策略更新，则是一个采集了2048个episode的批次进行更新
+            # 一个 iteration 对应于收集 n_steps 步经验并进行 n_epochs 次更新。
+            batch_size=64,       # 每次更新的批次大小，默認為 64
+            n_epochs=10,          # 每次更新時訓練的 epoch 數，默認為 10
+            gamma=0.99,           # 折扣因子，默認為 0.99
+            gae_lambda=0.95,      # GAE (Generalized Advantage Estimation) 的 lambda 參數，默認為 0.95
+            clip_range=0.2,       # PPO 的 clip 範圍，控制策略更新的幅度，默認為 0.2
+            ent_coef=0.0,         # 熵正則化係數，鼓勵探索，默認為 0.0
+            vf_coef=0.5,          # 值函數損失的係數，默認為 0.5
+            max_grad_norm=0.5,    # 梯度裁剪的最大範數，默認為 0.5
+            verbose=1,            # 訓練過程的輸出詳細程度，0 表示無輸出，1 表示有進度條和資訊
+            device="auto",        # 設備，默認為 "auto"（自動選擇 CPU 或 GPU）
+            tensorboard_log="./ppo_tensorboard"  # TensorBoard 記錄目錄，用於可視化訓練過程
+        )
+
     obs = env.reset()
 
-    done = False
-    ret = 0.
-    with open("rl_config.yaml", 'r') as stream:
-        config = yaml.safe_load(stream)
-    file_handling = config["file_handling"]
+    if IsTraining == True:
+        # 训练过程中捕获中断
+        try:
+            model.learn(total_timesteps=args.ts)
+            # 保存模型
+            print(f"Model saved as {save_model_name}.")
+            model.save(f"./weights/{model_policy}/{save_model_name}")
+        except KeyboardInterrupt:
+            print("\nTraining interrupted by user. Saving model...")
+            if input("Do you want to save the model? (y/n): ").lower() == 'y':
+                # 保存模型
+                print(f"Model saved as {save_model_name}.")
+                model.save(f"./weights/{model_policy}/{save_model_name}")
 
-    load_model_folder = file_handling["load_model_folder"]
-    # load_model_filename = file_handling["load_model_filename"]
-    load_model_filename = "test_720000_steps"
+    if IsTesting == True:
+        cnt = {"REACH": 0, "TIMEOUT": 0}
+        difficult_points = []
+        env.IsRender = False
+        while True:
+            action, _ = model.predict(obs)
+            # print(action)
+            if np.any(np.isnan(action)) or np.any(np.isinf(action)):
+                action = np.clip(action, 0, 10)  # 限制动作范围
+            obs, reward, done, info = env.step(action)
+            if done:
+                print(f"done: {done}", f"reward: {reward}", f"info: {info}")
+                print('-'*20+'reset env'+'-'*20)
+                obs = env.reset()
+                cnt[info['state']] += 1
+                if info['state'] == "TIMEOUT":
+                    difficult_points.append(info['waypoints'])
+                if cnt["REACH"] + cnt["TIMEOUT"] > 500:
+                    break
+        print(f"reach: {cnt['REACH']}, timeout: {cnt['TIMEOUT']}")
 
-    load_model_path = os.path.join(load_model_folder, load_model_filename)
-    model = PPO.load(load_model_path, env)
+        # print(difficult_points)
+        difficult_points_set = set(tuple(point) for point in difficult_points)
+        print(f"unique difficult points: {len(difficult_points_set)}")
+        # np.save("difficult_points.npy", np.array(list(difficult_points_set)))
 
-    for t in range(env.horizon):
-        action, _states = model.predict(obs)
-        obs, reward, done, _ = env.step(action)  # play action
-        ret += reward
-        env.render()
-        if done:
-            env.close()
-            break
-    print("rollout completed with return {}".format(ret))
+'''工作空间与可视化'''
+# reachable_points = env.sample_workspace()
+# np.save("waypoint.npy", reachable_points)
+# reachable_points = np.load("waypoint.npy")
+# env.visual_workspace(reachable_points)
 
+# 计算每个点与 [0,0,0.5] 的欧几里得距离
+# target_point = np.array([0, 0, 0.5])
+# distances = np.sqrt(np.sum((reachable_points - target_point) ** 2, axis=1))
 
-def test_hmfc():
-    env_id = "HMFC"
+# # 找到最大距离
+# max_distance = np.max(distances)
 
-    env_options = {}
-    env_options["robots"] = "Panda"
-    env_options["gripper_types"] = "UltrasoundProbeGripper"
-    env_options["controller_configs"] = {
-        "type": "HMFC",
-        "input_max": 1,
-        "input_min": -1,
-        "output_max": [0.05, 0.05, 0.05, 0.5, 0.5, 0.5],
-        "output_min": [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5],
-        "interpolation": None,
-    }
-    env_options["control_freq"] = 500
-    env_options["has_renderer"] = True
-    env_options["has_offscreen_renderer"] = False
-    env_options["render_camera"] = None
-    env_options["use_camera_obs"] = False
-    env_options["horizon"] = 1000
-    env_options["save_data"] = True
-
-    env = suite.make(env_id, **env_options)
-
-    # reset the environment to prepare for a rollout
-    obs = env.reset()
-    done = False
-    ret = 0.
-
-    for t in range(env.horizon):
-        action = []
-        obs, reward, done, _ = env.step(action)  # play action
-        env.render()
-        if done:
-            env.close()
-            break
-    print("rollout completed with return {}".format(ret))
+# print("最大距离:", max_distance)
+# exit(0)
 
 
-## SIMULATION TEST ##
-run_simulation()
-# test_hmfc()
-
-## PLOTTING ##
-# plt.plot_sim_data("tracking", "test", True)
-# plt.plot_training_rew_mean("training_rew_mean/tracking.csv", "training_rew_mean/variable_z.csv", "training_rew_mean/wrench.csv")
-# error.calculate_error_metrics("variable_z")
-# plt.plot_hmfc_data(1)
+# PPO Log 參考
+"""
+-----------------------------------------
+| rollout/                |             |
+|    ep_len_mean          | 2.5e+03     |
+|    ep_rew_mean          | 800         | 按我的獎勵設置，這個理論最大值為 1 * time_steps(2048) =2048  
+| time/                   |             |
+|    fps                  | 1283        |
+|    iterations           | 57          |
+|    time_elapsed         | 90          |
+|    total_timesteps      | 116736      |
+| train/                  |             |
+|    approx_kl            | 0.009181175 | KL 散度（Kullback-Leibler divergence）表明策略更新幅度(較小時說明策略變化不大，可能策略還在緩慢探索或收斂。)
+|    clip_fraction        | 0.112       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -8.37       | 熵損失值較高（負值越大，熵越大），說明策略的隨機性仍然較高，探索行為較多。
+|    explained_variance   | 0.998       | 解釋方差，表明對真實回報的預測能力(越大說明模型能夠較好地預測回報)
+|    learning_rate        | 0.0003      |
+|    loss                 | -0.0224     |
+|    n_updates            | 560         |
+|    policy_gradient_loss | -0.0106     |
+|    std                  | 0.977       |
+|    value_loss           | 0.00534     |
+-----------------------------------------
+"""

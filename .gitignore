@@ -28,9 +28,12 @@ CAD Models/
 data/
 figures/
 ppo_ultrasound_tensorboard/
+ppo_tensorboard/
+src/weights/PPO/
 reward_data/
 simulation_data/
 trained_models/
 policy_data/
 error_data/
 src/my_models/assets/objects/meshes/human_body.STL
+*.npy

@@ -18,8 +18,9 @@ sb_policy:
 # Specify environment
 robosuite:
   env_id: "Ultrasound"
-  # robots: "Tendon"
-  robots: "UR5e"
+  # env_id: "BasicEnv"
+  robots: "Tendon"
+  # robots: "UR5e"
   use_camera_obs: False
   use_object_obs: False   # Torso obs
   has_renderer: False

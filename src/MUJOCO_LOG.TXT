@@ -1,0 +1,9 @@
+Thu Apr 17 17:18:56 2025
+WARNING: Nan, Inf or huge value in CTRL at ACTUATOR 0. The simulation is unstable. Time = 0.0000.
+
+Thu Apr 17 17:19:42 2025
+WARNING: Nan, Inf or huge value in CTRL at ACTUATOR 0. The simulation is unstable. Time = 0.0000.
+
+Tue Apr 22 15:43:25 2025
+ERROR: GLEW initalization error: Missing GL version
+
