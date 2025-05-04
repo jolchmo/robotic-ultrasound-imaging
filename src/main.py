@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import time
 
@@ -7,30 +8,23 @@ import mujoco.viewer
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
 
-from my_environments import BasicEnv, visual_workspace
+from my_environments import BasicEnv
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import BaseCallback
 
-import matplotlib.pyplot as plt
-import argparse
 
-
-def make_env(xml):
+def make_env():
     def _thunk():
-        env = BasicEnv(xml)
+        env = BasicEnv()
         env = Monitor(env)
         env.seed(42)
         return env
     return _thunk
 
 
-if __name__ == '__main__':
-    # env = BasicEnv("../robosuite/robosuite/models/assets/robots/tendon/robot.xml")
-    # reachable_points = env.sample_workspace()
-    # np.save("waypoint.npy", reachable_points)
-    # exit(0)
+def get_args():
     # 创建解析器
     parser = argparse.ArgumentParser(description="A program with a train flag.")
     parser.add_argument('-tr', action='store_true', default=False, help='Enable training mode')
@@ -40,7 +34,6 @@ if __name__ == '__main__':
     parser.add_argument('-lr', type=float, default=3e-4, help='learning rate')
     # 解析参数
     args = parser.parse_args()
-
     # assert 后面的东西要为True
     if args.tr and not args.l:
         print('train without loading previous model?')
@@ -50,34 +43,32 @@ if __name__ == '__main__':
             exit(0)
     assert not (args.tr == True and args.s == None), "Training model,please set the name of saving model"
     assert not (args.tr == False and args.l == None), "Testing model,please set the name of loading model"
+    return args
 
-    xml_path = "../robosuite/robosuite/models/assets/robots/tendon/robot.xml"
+
+if __name__ == '__main__':
+    args = get_args()
+
     model_policy = "PPO"
-
-    IsTraining = args.tr
-    IsTesting = not IsTraining
-    IsRender = not IsTraining
-
-    if args.l:
-        IsLoadModel = True
-        load_model_name = args.l
-    else:
-        IsLoadModel = False
-
-    save_model_name = args.s
+    IsTraining = True if args.tr else False
+    IsTesting = False if args.tr else True
+    IsRender = False if args.tr else True
+    env_options = {}
 
     print(f"------------------Training---------------------") if IsTraining else print(f"---------------------Testing:-------------------")
 
+    # 如果训练，需要多线程，按需要设置
     if IsTraining:
-        num_cpu = 16
-        env = SubprocVecEnv([make_env(xml_path) for i in range(num_cpu)])
+        num_cpu = 8
+        env = SubprocVecEnv([make_env(**env_options) for i in range(num_cpu)])
+    else:
+        env = BasicEnv(**env_options)
 
-    if IsTesting:
-        env = BasicEnv(xml_path)
-
-    if IsLoadModel or IsTesting:
+    if args.l:
         try:
-            model = PPO.load(f"./weights/{model_policy}/{load_model_name}", env=env, verbose=1)
+            print(f"Loading model from {args.l}")
+            print(f"./weights/{model_policy}/{args.l}")
+            model = PPO.load(f"./weights/{model_policy}/{args.l}", env=env, verbose=1)
             # 打印当前学习率
         except Exception as e:
             Exception(f"Error loading model: {e}")
@@ -107,31 +98,25 @@ if __name__ == '__main__':
             device="auto",        # 設備，默認為 "auto"（自動選擇 CPU 或 GPU）
             tensorboard_log="./ppo_tensorboard"  # TensorBoard 記錄目錄，用於可視化訓練過程
         )
-
     obs = env.reset()
-
-    if IsTraining == True:
-        # 训练过程中捕获中断
+    if IsTraining:
+        # 训练过程中捕获中断，方便中间打断也可以保存
         try:
             model.learn(total_timesteps=args.ts)
-            # 保存模型
-            print(f"Model saved as {save_model_name}.")
-            model.save(f"./weights/{model_policy}/{save_model_name}")
+            model.save(f"./weights/{model_policy}/{args.s}")
         except KeyboardInterrupt:
-            print("\nTraining interrupted by user. Saving model...")
+            print("Training interrupted by user. Saving model...")
             if input("Do you want to save the model? (y/n): ").lower() == 'y':
-                # 保存模型
-                print(f"Model saved as {save_model_name}.")
-                model.save(f"./weights/{model_policy}/{save_model_name}")
+                model.save(f"./weights/{model_policy}/{args.s}")
+        print(f"Model saved as {args.s}.")
 
-    if IsTesting == True:
+    else:
         cnt = {"REACH": 0, "TIMEOUT": 0}
-        difficult_points = []
-        env.IsRender = False
+        env.IsRender = True
         while True:
             action, _ = model.predict(obs)
-            # print(action)
             if np.any(np.isnan(action)) or np.any(np.isinf(action)):
+                action = [1, 0, 0, 0, 0, 0]
                 action = np.clip(action, 0, 10)  # 限制动作范围
             obs, reward, done, info = env.step(action)
             if done:
@@ -139,56 +124,6 @@ if __name__ == '__main__':
                 print('-'*20+'reset env'+'-'*20)
                 obs = env.reset()
                 cnt[info['state']] += 1
-                if info['state'] == "TIMEOUT":
-                    difficult_points.append(info['waypoints'])
                 if cnt["REACH"] + cnt["TIMEOUT"] > 500:
                     break
         print(f"reach: {cnt['REACH']}, timeout: {cnt['TIMEOUT']}")
-
-        # print(difficult_points)
-        difficult_points_set = set(tuple(point) for point in difficult_points)
-        print(f"unique difficult points: {len(difficult_points_set)}")
-        # np.save("difficult_points.npy", np.array(list(difficult_points_set)))
-
-'''工作空间与可视化'''
-# reachable_points = env.sample_workspace()
-# np.save("waypoint.npy", reachable_points)
-# reachable_points = np.load("waypoint.npy")
-# env.visual_workspace(reachable_points)
-
-# 计算每个点与 [0,0,0.5] 的欧几里得距离
-# target_point = np.array([0, 0, 0.5])
-# distances = np.sqrt(np.sum((reachable_points - target_point) ** 2, axis=1))
-
-# # 找到最大距离
-# max_distance = np.max(distances)
-
-# print("最大距离:", max_distance)
-# exit(0)
-
-
-# PPO Log 參考
-"""
------------------------------------------
-| rollout/                |             |
-|    ep_len_mean          | 2.5e+03     |
-|    ep_rew_mean          | 800         | 按我的獎勵設置，這個理論最大值為 1 * time_steps(2048) =2048  
-| time/                   |             |
-|    fps                  | 1283        |
-|    iterations           | 57          |
-|    time_elapsed         | 90          |
-|    total_timesteps      | 116736      |
-| train/                  |             |
-|    approx_kl            | 0.009181175 | KL 散度（Kullback-Leibler divergence）表明策略更新幅度(較小時說明策略變化不大，可能策略還在緩慢探索或收斂。)
-|    clip_fraction        | 0.112       |
-|    clip_range           | 0.2         |
-|    entropy_loss         | -8.37       | 熵損失值較高（負值越大，熵越大），說明策略的隨機性仍然較高，探索行為較多。
-|    explained_variance   | 0.998       | 解釋方差，表明對真實回報的預測能力(越大說明模型能夠較好地預測回報)
-|    learning_rate        | 0.0003      |
-|    loss                 | -0.0224     |
-|    n_updates            | 560         |
-|    policy_gradient_loss | -0.0106     |
-|    std                  | 0.977       |
-|    value_loss           | 0.00534     |
------------------------------------------
-"""

@@ -26,7 +26,7 @@ from my_models.arenas import UltrasoundArena
 from utils.quaternion import distance_quat, difference_quat
 
 
-class BasicEnv(SingleArmEnv):
+class Ultrasound(SingleArmEnv):
     """
     This class corresponds to the ultrasound task for a single robot arm.
 
@@ -134,7 +134,7 @@ class BasicEnv(SingleArmEnv):
         assert gripper_types == "UltrasoundProbeGripper", \
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
 
-        assert robots == "UR5e" or robots == "Panda" or robots == "Tendon", \
+        assert robots == "UR5e" or robots == "Panda", \
             "Robot must be UR5e or Panda!"
 
         assert "OSC" or "HMFC" in controller_configs["type"], \
@@ -423,7 +423,7 @@ class BasicEnv(SingleArmEnv):
 
             # Loop through all objects and reset their positions
             for obj_pos, _, obj in object_placements.values():
-                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array([0.5, 0.5, -0.5, -0.5])]))
+                qpos_adr = self.mj_model.jnt_qposadr[joint_id]
                 self.sim.forward()      # update sim states
 
         # says if probe has been in touch with torso

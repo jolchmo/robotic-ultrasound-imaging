@@ -139,7 +139,6 @@ class Ultrasound(SingleArmEnv):
 
         assert "OSC" or "HMFC" in controller_configs["type"], \
             "The robot controller must be of type OSC or HMFC"
-
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
@@ -158,7 +157,7 @@ class Ultrasound(SingleArmEnv):
         self.reward_shaping = reward_shaping
 
         # error multipliers
-        self.pos_error_mul = 90
+        self.pos_error_mul = 10.0
         self.ori_error_mul = 0.2
         self.vel_error_mul = 45
         self.force_error_mul = 0.7
@@ -172,6 +171,18 @@ class Ultrasound(SingleArmEnv):
         self.der_force_reward_mul = 2
         self.force_out_of_threshold_reward_mul = 10
 
+        # reward惩罚权重
+        self.time_penalty_mul = -0.1
+
+        # reward 相关
+        # 一个ep 的时间限制和最大奖励
+        self.ep_time = 10.0
+        self.ep_frame = self.ep_time * control_freq
+        self.ep_price = 1.0 * self.ep_frame
+
+        # reward terminal condition
+        self.stable_time = 0.5
+        self.stable_frame = self.stable_time * control_freq
         # desired states
         # Upright probe orientation found from experimenting (x,y,z,w)
         # self.goal_quat = np.array(
@@ -182,7 +193,7 @@ class Ultrasound(SingleArmEnv):
         self.goal_der_contact_z_force = 0           # derivative of contact force
 
         # early termination configuration
-        self.pos_error_threshold = 1.0
+        self.pos_error_threshold = 1e-2
         self.ori_error_threshold = 0.10
 
         # examination trajectory
@@ -330,7 +341,7 @@ class Ultrasound(SingleArmEnv):
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
-                # z =0.8
+
                 reference_pos=self.table_offset,
                 z_offset=0.01,
             )
@@ -823,54 +834,44 @@ class Ultrasound(SingleArmEnv):
             return np.array([pos[0], pos[1], pos[2]])
 
     def step(self, action):
-        self.sim.data.ctrl[:] = action
-        self.sim.forward()
-        self.sim.step()
-        return False, None, None, None
-        # """
-        # Takes a step in simulation with control command @action.
 
-        # Args:
-        #     action (np.array): Action to execute within the environment
+        if self.done:
+            raise ValueError("executing action in terminated episode")
+        # 政策每给出一次action，环节都要执行control_timestep/self.timestep=，才会有下一次的动作
 
-        # Returns:
-        #     4-tuple:
+        for i in range(int(self.control_timestep / self.model_timestep)):
+            self.sim.data.ctrl[:] = action
+            self.sim.forward()
+            self.sim.step()
+            self._update_observables()
 
-        #         - (OrderedDict) observations from the environment
-        #         - (float) reward from the environment
-        #         - (bool) whether the current episode is completed or not
-        #         - (dict) misc information
+        # observation
+        obs = self._get_observations()
+        done = False
+        state = "RUNNING"
 
-        # Raises:
-        #     ValueError: [Steps past episode termination]
+        # 需要增加精度时调整这个，默认为5.0,在观察到精度不足的时候，可以修改到6，视情况修改mul，但可能会带来问题(一个ep可以得到的最大reward变了，)
 
-        # """
-        # if self.done:
-        #     raise ValueError("executing action in terminated episode")
+        # distance = np.linalg.norm((self._eef_xpos[:] - self.waypoint_pos[:]))
+        # pos_reward = self.pos_reward_mul * np.exp(-self.error_mul * distance)
+        # time_penalty = self.time_penalty_mul * (self.sim.data.time / self.ep_time)
+        # reward = pos_reward + time_penalty
 
-        # self.timestep += 1
+        # # 计数器.计算ep中是否连续到达目标点,超出则重置
 
-        # # Since the env.step frequency is slower than the mjsim timestep frequency, the internal controller will output
-        # # multiple torque commands in between new high level action commands. Therefore, we need to denote via
-        # # 'policy_step' whether the current step we're taking is simply an internal update of the controller,
-        # # or an actual policy update
-        # policy_step = True
+        # self.cnt = self.cnt + 1 if distance < self.pos_error_threshold else 0
 
-        # # Loop through the simulation at the model timestep rate until we're ready to take the next policy step
-        # # (as defined by the control frequency specified at the environment level)
-        # # control timestep是0.05，仿真timestep是0.002，说明模型输出一次动作仿真器应该要仿真25个step
-        # for i in range(int(self.control_timestep / self.model_timestep)):
-        #     self._pre_action(action, policy_step)
-        #     self.sim.forward()
-        #     self.sim.step()
-        #     self._update_observables()
-        #     policy_step = False
-
-        # # Note: this is done all at once to avoid floating point inaccuracies
-        # self.cur_time += self.control_timestep
-
-        # reward, done, info = self._post_action(action)
-        return self._get_observations(), reward, done, info
+        # if self.cnt > self.stable_frame:
+        #     reward = self.ep_price
+        #     state = "REACH"
+        #     done = True
+        # if self.data.time > self.ep_time:
+        #     state = "TIMEOUT"
+        #     done = True
+        distance = 0
+        reward = 0
+        info = {"distance": f"{round(distance*100,2)}cm", 'state': state, "time": self.sim.data.time}
+        return obs, reward, done, info
 
     def _add_noise_to_pos(self, init_pos):
         """

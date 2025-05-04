@@ -108,9 +108,11 @@ if __name__ == '__main__':
     tb_log_folder = file_handling["tb_log_folder"]
     tb_log_name = file_handling["tb_log_name"]
 
-    save_model_folder = file_handling["save_model_folder"]
+    # save_model_folder = file_handling["save_model_folder"]
+    save_model_folder = 'weights/obs19'
     save_model_filename = file_handling["save_model_filename"]
-    load_model_folder = file_handling["load_model_folder"]
+    load_model_folder = 'weights/obs19'
+    # load_model_folder = file_handling["load_model_folder"]
     load_model_filename = file_handling["load_model_filename"]
 
     continue_training_model_folder = file_handling["continue_training_model_folder"]

@@ -2,18 +2,27 @@
   <compiler inertiafromgeom='true' angle='degree'/>
 
   <asset>
-    <mesh name="body" file="meshes/human_body.STL" scale="1 1 1"/>
+    <mesh name="body" file="meshes/only_body.STL" scale="1 1 1"/>
     <texture file="../textures/skin.png" type="2d" name="skin-tex"/>
     <material name="body_mat" reflectance="0.5" texrepeat="1 1" texture="skin-tex"/>
   </asset>
   <worldbody>
     <body>
+    <freejoint name="torso_free_joint"/>
       <body name="object">
-        <geom name="client_body" mesh="body" type="mesh" density="1050" material="body_mat" contype="1" conaffinity="1" group="0"/>
-        </body>
-      <site rgba="1 0 0 1" size="0.05" pos="0. 0. -0.15"  name="bottom_site"/>
-      <site rgba="0 1 0 1" size="0.05" pos="0. 0. 0.15" name="top_site"/>
-      <site rgba="0 0 1 1" size="0.05" pos="0.35 0.35 0."  name="horizontal_radius_site"/>
+        <geom name="client_body" mesh="body" type="mesh" density="1050" material="body_mat" contype="1" conaffinity="1" group="1" 
+        friction="1.5 0.005 0.0001"   />
+      </body>
+      <!-- <body name="object_col" pos="0 -0.1 0.03" quat="0.0 0.0 0.70711 0.70711">
+        <composite type="cylinder"  count="9 5 11" spacing="0.035" solrefsmooth="-1324.17 -17.59">
+          <geom type="sphere" size="0.0075 0.025" rgba=".8 .2 .1 0"  mass="0.01" friction="0.01 0.005 0.0001" contype="1"  group="1"  />
+          <skin material="body_mat" texcoord="true"/>
+        </composite>
+      </body> -->
+      <site rgba="1 0 0 1" size="0.01" pos="0. 0. 0"  group="1" name="site"/>
+      <site rgba="1 0 0 1" size="0.01" pos="0. 0. -0.15"  group="1" name="bottom_site"/>
+      <site rgba="0 1 0 1" size="0.01" pos="0. 0. 0.15" group="1" name="top_site"/>
+      <site rgba="0 0 1 1" size="0.01" pos="0.35 0.35 0." group="1"  name="horizontal_radius_site"/>
     </body>
 
   </worldbody>

@@ -1,141 +1,44 @@
+# test_basic_env_seed.py
+import mujoco
 import numpy as np
-import math
+from my_environments import BasicEnv  # 导入你的环境类
 
-import robosuite.utils.transform_utils as T
+# 创建环境实例 (传入需要的参数，例如模型路径等)
+# 注意：如果 BasicEnv.__init__ 仍然依赖于 Robosuite 的 suite.make 创建模型，
+# 你可能需要先注册环境，并用 suite.make 创建，而不是直接 new BasicEnv()
+# 假设 suite.make 是创建入口:
+import robosuite as suite
+from robosuite.wrappers import GymWrapper
+from robosuite.environments.base import register_env
+from my_models.grippers import UltrasoundProbeGripper
+from utils.common import register_gripper
 
-def skew_sym(x):
-    """ convert 3D vector to skew-symmetric matrix form """
-    x1, x2, x3 = x.ravel()
-    return np.array([
-        [0, -x3, x2],
-        [x3, 0, -x1],
-        [-x2, x1, 0]
-    ])
+register_gripper(UltrasoundProbeGripper)  # 注册 gripper
+register_env(BasicEnv)  # 注册你的 BasicEnv
 
-def rand_quat():
-    """ uniform sampling of unit quaternion """
-    u1 = np.random.uniform(0, 1)
-    u2 = np.random.uniform(0, 1)
-    u3 = np.random.uniform(0, 1)
-    q1 = np.sqrt(1-u1) * np.sin(2*np.pi*u2)
-    q2 = np.sqrt(1-u1) * np.cos(2*np.pi*u2)
-    q3 = np.sqrt(u1) * np.sin(2*np.pi*u3)
-    q4 = np.sqrt(u1) * np.cos(2*np.pi*u3)
-    return np.array((q1, q2, q3, q4))
+# 使用 suite.make 创建环境，这通常会调用你的 BasicEnv 的 __init__
+# 传入 suite.make 需要的参数，特别是 env_id 和 robots 等
+# env_id 应该是你注册 BasicEnv 时的 ID
+# 例如:
+env = suite.make(
+    "BasicEnv",  # 使用你注册的 env_id
+)
 
-q = rand_quat()
+# 如果需要，包装成 Gym 接口
+env = GymWrapper(env)
 
-R = T.quat2mat(q)
-p = np.array([1, 2, 3])
 
-def pose2mat(R, p):
-    """ convert pose to transformation matrix """
-    p0 = p.ravel()
-    H = np.block([
-        [R, p0[:, np.newaxis]],
-        [np.zeros(3), 1]
-    ])
-    return H
+print(f"Environment class: {type(env)}")
+print(f"Does environment have seed method? {hasattr(env, 'seed')}")
 
-def mat2pose(T):
-    """ convert transformation matrix T to pose """
-    R = T[:3,:3]
-    p = T[:3,3]
-    return (R, p)
+# 尝试设置种子
+seed_value = 42
+print(f"Attempting to set seed to {seed_value}")
+try:
+    env.seed(seed_value)
+    print(f"Successfully set seed to {seed_value}")
+except AttributeError as e:
+    print(f"AttributeError when setting seed: {e}")
 
-def adjoint(T):
-    """ adjoint representation of transformation """
-    R, p = mat2pose(T)
-    pR = np.matmul(skew_sym(p), R)
-    return np.block([
-        [R, np.zeros((3, 3))],
-        [pR, R],
-    ])
-
-def exp2rot(w, theta):
-    """Matrix exponential of rotations (Rodrigues' Formula)
-
-    Convert exponential coordinates to rotation matrix 
-    """
-    ss_w = skew_sym(w)
-    R = np.eye(3) + np.sin(theta) * ss_w + (1-np.cos(theta)) * np.matmul(ss_w, ss_w)
-    return R
-
-def rot2exp(R):
-    """Matrix logarithm of rotations
-    
-    Convert rotation matrix to exponential coordinates
-    """
-    
-    if np.allclose(R, np.eye(3)):
-        return (np.zeros(3), 0) # w is undefined
-    if np.isclose(np.trace(R), -1):
-        
-        if not np.isclose(R[2][2], -1):
-            w = np.array([R[0][2], R[1][2], R[2][2] + 1])
-            w /= np.sqrt(2 * (1 + R[2][2]))
-            return (w, np.pi)
-        elif not np.isclose(R[1][1], -1):
-            w = np.array([R[0][1], R[1][1] + 1, R[2][1]])
-            w /= np.sqrt(2 * (1 + R[1][1]))
-            return (w, np.pi)
-        else:
-            w = np.array([R[0][0] + 1, R[1][0], R[2][0]])
-            w /= np.sqrt(2 * (1 + R[0][0]))
-            return (w, np.pi)
-    
-    theta = np.arccos(0.5 * (np.trace(R) - 1))
-    ss_w = (R - R.T) / (2 * np.sin(theta))
-    w = np.array([ss_w[2][1], ss_w[0][2], ss_w[1][0]])
-    return (w, theta)
-
-def exp2mat(w, v, theta):
-    """Matrix exponential of rigid-body motions
-    
-    Convert exponential coordinates to transformation matrix
-    """
-    
-    w_norm = np.linalg.norm(w)
-    v_norm = np.linalg.norm(v)
-    
-    if np.isclose(w_norm, 0):
-        assert np.isclose(v_norm, 1), 'norm(v) must be 1'
-        new_v = v.ravel() * theta
-        return np.vstack([
-            np.hstack([
-                exp2rot(w, theta), new_v[:,np.newaxis]
-            ]),
-            np.array([[0, 0, 0, 1]]),
-        ])
-    
-    assert np.isclose(w_norm, 1), 'norm(w) must be 1'
-    
-    ss_w = skew_sym(w)
-    new_v = (np.eye(3)*theta + (1-np.cos(theta))*ss_w + (theta-np.sin(theta))*np.matmul(ss_w, ss_w)).dot(v)
-    return np.vstack([
-        np.hstack([
-            exp2rot(w, theta), new_v[:,np.newaxis]
-        ]),
-        np.array([[0, 0, 0, 1]]),
-    ])
-
-def mat2exp(T):
-    """Matrix logarithm of rigid-body motions
-    
-    Convert transformation matrix to exponential coordinates
-    """
-    
-    R, p = mat2pose(T)
-
-    if np.allclose(R, np.eye(3)):
-        p_norm = np.linalg.norm(p)
-        w = np.zeros(3)
-        return (w, p/p_norm, p_norm)
-
-    w, theta = rot2exp(R)
-    ss_w = skew_sym(w)
-    G_inv = 1/theta*np.eye(3) - 0.5*ss_w + (1/theta-0.5/np.tan(theta/2))*np.matmul(ss_w, ss_w)
-    v = G_inv.dot(p)
-
-    return (w, v, theta)
-
+# ... 可以尝试调用 reset ...
+# obs = env.reset()
