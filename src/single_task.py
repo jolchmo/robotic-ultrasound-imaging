@@ -8,7 +8,7 @@ import mujoco.viewer
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
 
-from my_environments import BasicEnv
+from my_environments import SingleEnv
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -17,7 +17,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 def make_env():
     def _thunk():
-        env = BasicEnv()
+        env = SingleEnv()
         env = Monitor(env)
         env.seed(42)
         return env
@@ -62,7 +62,7 @@ if __name__ == '__main__':
         num_cpu = 8
         env = SubprocVecEnv([make_env(**env_options) for i in range(num_cpu)])
     else:
-        env = BasicEnv(**env_options)
+        env = SingleEnv(**env_options)
 
     if args.l:
         try:
@@ -108,12 +108,12 @@ if __name__ == '__main__':
             print("Training interrupted by user. Saving model...")
             if input("Do you want to save the model? (y/n): ").lower() == 'y':
                 model.save(f"./weights/{model_policy}/{args.s}")
-        print(f"Model saved as {args.s}.")
+        except Exception as e:
+            print(f"Error during training: {e}")
+            print(f"Model saved as {args.s}.")
 
     else:
-        cnt = {"REACH": 0, "TIMEOUT": 0}
-        ee_pose_list = []
-        force_list = []
+        cnt = {"REACH": 0, "TIMEOUT": 0, "reward": [], "distance": [], "TO_distance": []}
         env.IsRender = True
         while True:
             action, _ = model.predict(obs)
@@ -121,17 +121,18 @@ if __name__ == '__main__':
                 action = np.clip(action, 0, 20)  # 限制动作范围
 
             obs, reward, done, info = env.step(action)
-            ee_pose_list.append(env.ee_pos.copy())
-            force_list.append(env.eef_contact_force.copy())
             if done:
                 print(f"done: {done}", f"reward: {reward}", f"info: {info}")
                 print('-'*20+'reset env'+'-'*20)
                 obs = env.reset()
                 cnt[info['state']] += 1
-                if cnt["REACH"] + cnt["TIMEOUT"] > 0:
+                cnt["reward"].append(reward)
+                cnt["distance"].append(info['distance'])
+                if info['state'] == "TIMEOUT":
+                    cnt["TO_distance"].append(info['distance'])
+                if cnt["REACH"] + cnt["TIMEOUT"] > 500:
                     break
+        print('在经过500次的测试后，模型的表现如下：')
         print(f"reach: {cnt['REACH']}, timeout: {cnt['TIMEOUT']}")
-        print(len(ee_pose_list))
-        np.save(f"ee_pose_list_loop.npy", ee_pose_list)
-        np.save(f"force_list.npy", force_list)
-        # np.save(f"ee_pose_list.npy", ee_pose_list)
+        print(f"reward: {round(np.mean(cnt['reward']),2)}, distance: {round(np.mean(cnt['distance']),2)}cm")
+        print(f"超时的测试，平均距离为: {round(np.mean(cnt['TO_distance']),2)}cm")

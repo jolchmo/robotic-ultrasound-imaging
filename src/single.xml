@@ -2,12 +2,12 @@
 	
 	
     <actuator>
-	<motor name="robot0_torq_j1" joint="robot0_joint_1" ctrlrange="0 1" ctrllimited="true" gear="100 0" />
-	<motor name="robot0_torq_j2" joint="robot0_joint_2" ctrlrange="0 1" ctrllimited="true" gear="100 0" />
-	<motor name="robot0_torq_j3" joint="robot0_joint_3" ctrlrange="0 1" ctrllimited="true" gear="100 0" />
-	<motor name="robot0_torq_j4" joint="robot0_joint_4" ctrlrange="0 1" ctrllimited="true" gear="100 0" />
-	<motor name="robot0_torq_j5" joint="robot0_joint_5" ctrlrange="0 1" ctrllimited="true" gear="100 0" />
-	<motor name="robot0_torq_j6" joint="robot0_joint_6" ctrlrange="0 1" ctrllimited="true" gear="100 0" />
+	<motor name="robot0_torq_j1" joint="robot0_joint_1" ctrlrange="0 1" ctrllimited="true" gear="20 0" />
+	<motor name="robot0_torq_j2" joint="robot0_joint_2" ctrlrange="0 1" ctrllimited="true" gear="20 0" />
+	<motor name="robot0_torq_j3" joint="robot0_joint_3" ctrlrange="0 1" ctrllimited="true" gear="20 0" />
+	<motor name="robot0_torq_j4" joint="robot0_joint_4" ctrlrange="0 1" ctrllimited="true" gear="20 0" />
+	<motor name="robot0_torq_j5" joint="robot0_joint_5" ctrlrange="0 1" ctrllimited="true" gear="20 0" />
+	<motor name="robot0_torq_j6" joint="robot0_joint_6" ctrlrange="0 1" ctrllimited="true" gear="20 0" />
     </actuator>
 
 
@@ -23,48 +23,33 @@
 		<mesh name="robot0_s8" file="/home/john/Desktop/robotic-ultrasound-imaging/robosuite/robosuite/models/assets/robots/tendon/./meshes/s1.STL" scale="1 1 1" />
 		<mesh name="robot0_s9" file="/home/john/Desktop/robotic-ultrasound-imaging/robosuite/robosuite/models/assets/robots/tendon/./meshes/s1.STL" scale="1 1 1" />
 		<mesh name="robot0_s10" file="/home/john/Desktop/robotic-ultrasound-imaging/robosuite/robosuite/models/assets/robots/tendon/./meshes/s1.STL" scale="1 1 1" />
-
-	<mesh file="/home/john/Desktop/robotic-ultrasound-imaging/src/my_models/assets/grippers/meshes/ultrasound_probe_mesh_simple.stl" name="gripper0_probe_mesh" scale="0.001 0.001 0.001" />
-  <texture builtin="gradient" height="256" rgb1=".9 .9 1." rgb2=".2 .3 .4" type="skybox" width="256" />
-    <texture file="/home/john/Desktop/robotic-ultrasound-imaging/src/my_models/assets/arenas/../textures/hospital_floor.png" type="2d" name="texplane" />
-    <material name="floorplane" reflectance="0.01" shininess="0.0" specular="0.0" texrepeat="2 2" texture="texplane" texuniform="true" />
-    
-    <texture file="/home/john/Desktop/robotic-ultrasound-imaging/src/my_models/assets/arenas/../textures/ceramic.png" type="cube" name="tex-ceramic" />
-    <material name="table_ceramic" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="tex-ceramic" />
-    
-    <texture file="/home/john/Desktop/robotic-ultrasound-imaging/src/my_models/assets/arenas/../textures/steel-brushed.png" type="cube" name="tex-steel-brushed" />
-    <material name="table_legs_metal" reflectance="0.8" shininess="0.8" texrepeat="1 1" texture="tex-steel-brushed" />
-    
-    <texture file="/home/john/Desktop/robotic-ultrasound-imaging/src/my_models/assets/arenas/../textures/hospital_wall.png" type="2d" name="tex-hospital-wall" />
-    <material name="walls_mat" reflectance="0.0" shininess="0.1" specular="0.1" texrepeat="1 1" texture="tex-hospital-wall" texuniform="false" />
-    
-    <texture name="textable" builtin="flat" height="512" width="512" rgb1="0.5 0.5 0.5" rgb2="0.5 0.5 0.5" />
-    <material name="table_mat" texture="textable" />
-
-  <mesh name="body_body" file="/home/john/Desktop/robotic-ultrasound-imaging/src/my_models/assets/objects/meshes/human_body.STL" scale="1 1 1" />
-    <mesh name="body_liver" file="/home/john/Desktop/robotic-ultrasound-imaging/src/my_models/assets/objects/meshes/liver.STL" scale="1 1 1" />
-    <texture file="/home/john/Desktop/robotic-ultrasound-imaging/src/my_models/assets/objects/../textures/skin.png" type="2d" name="body_skin-tex" />
-    <texture file="/home/john/Desktop/robotic-ultrasound-imaging/src/my_models/assets/objects/../textures/red.png" type="2d" name="body_liver-tex" />
-    <material name="body_mat" reflectance="0.5" texrepeat="1 1" texture="body_skin-tex" />
-    <material name="body_liver_mat" reflectance="0.5" texrepeat="1 1" texture="body_liver-tex" />
-  </asset>
+		
+	</asset>
 
 
+
+
+
+    <option timestep="0.002" tolerance="1e-10" jacobian="dense" gravity="0 0 -0.981" /> 
 
     
-
-    <option timestep="0.002" tolerance="1e-10" jacobian="dense" gravity="0 0 0" />
 
 
     <worldbody>
-		<site name="robot0_waypoint" type="sphere" size="0.005" pos="-1 -1 -1" rgba=".8 .8 .8 1" />
+		<camera mode="fixed" name="robot0_default_camera" pos="-0.275 -1.079 1.497" xyaxes="0.998 0.068 -0.000 0.002 -0.024 1.000" />
+		
+		<site name="robot0_waypoint" type="sphere" size="0.001" pos="-1 -1 -1" rgba=".8 .8 .8 1" />
 
-    	<body name="robot0_base" pos="-0.39 0.0 1.4700000000000002" quat="0.0 0.70711 0.0 0.70711">
+
+
+    	<body name="robot0_base" pos="-0.39 0.0 1.47" quat="0.0 0.70711 0.0 0.70711">
 			
-			<camera mode="fixed" name="robot0_robotview" pos="-0.25 -0.6 0.2" quat="0.61237244 0.35355339 -0.61237244 0.35355339" />
 			
-			<geom mesh="robot0_base" mass="100" pos="0.0000 0.0000 0.0000" density="0.1" type="mesh" group="1" />
+			<camera mode="fixed" pos="-0.25 -0.6 0.2" quat="0.61237244 0.35355339 -0.61237244 0.35355339" />
 			
+			<geom mesh="robot0_base" pos="0.0000 0.0000 0.0000" density="0.1" type="mesh" group="1" />
+
+			<inertial diaginertia="0 0 0" mass="100" pos="0.05 0  -0.1" />
 
 			
 			<body>
@@ -106,13 +91,10 @@
 			
 			<body name="robot0_s1">
 			<geom type="sphere" pos="0 0 0.0000" size="0.005" rgba="0 0.5 0 1" />
-			
+			<joint type="hinge" pos="0 0 0.0000" axis="1 0 0" damping="0.9000" stiffness="0.35" />
+			<joint type="hinge" pos="0 0 0.0000" axis="0 1 0" damping="0.9000" stiffness="0.35" />
 			<geom mesh="robot0_s1" pos="0 0.0000 0.0000" density="0.1" type="mesh" group="1" name="robot0_s1_vis" />
 			<geom mesh="robot0_s1" pos="0 0.0000 0.0000" density="0.1" type="mesh" group="0" name="robot0_s1_col" contype="1" conaffinity="1" rgba="0 0.5 0 1" />
-
-			<joint type="hinge" pos="0 0 0.050" axis="1 0 0" damping="0.9000" stiffness="0.35" />
-			<joint type="hinge" pos="0 0 0.050" axis="0 1 0" damping="0.9000" stiffness="0.35" />
-
 			<site name="robot0_s_1_1" pos="0.02028   0.00544  -0.0000" size="0.002" />
 			<site name="robot0_s_1_2" pos="0.02028  -0.00544  -0.0000" size="0.002" />
 			<site name="robot0_s_1_3" pos="-0.00544 -0.02028  -0.0000" size="0.002" />
@@ -241,10 +223,10 @@
 			<site name="robot0_s_10_5" pos="-0.01485  0.01485  0.4500" size="0.002" />
 			<site name="robot0_s_10_6" pos="-0.00544  0.02028  0.4500" size="0.002" />
 
+
 			
 			
-			
-			<body name="robot0_right_hand"  pos="0 0 0.50" quat="1 0 0 0">			
+			<body name="robot0_right_hand" pos="0 0 0.50" quat="1 0 0 0">			
 				<geom type="sphere" pos="0 0 0.50" size="0.005" rgba="0 0.5 0 1" />
 
 				
@@ -257,15 +239,7 @@
 				
 				<camera mode="fixed" name="robot0_eye_in_hand" pos="0.05 0 0" quat="0 0.707108 0.707108 0" fovy="75" />
 				
-		<body name="gripper0_gripper_base" pos="-0.004 -0.063 0.128" quat="1 0 0 0">
-        <site name="gripper0_ft_frame" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1" /> 
-        <geom name="gripper0_probe_collision" mesh="gripper0_probe_mesh" type="mesh" mass="1" friction="0.0001 0.005 0.0001" group="0" rgba="0 0 0.5 1" />
-        <geom name="gripper0_probe_visual" mesh="gripper0_probe_mesh" type="mesh" group="1" />
-        
-        <site name="gripper0_grip_site" size="0.01 0.01 0.01" rgba="1 0 0 0.5" type="sphere" group="1" />
-        <site name="gripper0_grip_site_cylinder" size="0.005 0.01" rgba="0 1 0 0.3" type="cylinder" group="1" />
-    </body>
-  </body>
+			</body>
 			</body>
 			</body>
 			</body>
@@ -277,70 +251,19 @@
 			</body>
 			</body>
 		</body>
-		<geom condim="3" material="floorplane" name="floor" pos="0 0 0" size="3 3 .125" type="plane" />
-    
-    <geom pos="0 3 1.5" quat="0.7071 0.7071 0 0" size="3 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_left_visual" material="walls_mat" />
-    <geom pos="0 -3 1.5" quat="-0.7071 -0.7071 0 0" size="3 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_right_visual" material="walls_mat" />
-    <geom pos="-3 0 1.5" quat="0.5 0.5 0.5 0.5" size="3 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_rear_visual" material="walls_mat" />
-    <geom pos="3 0 1.5" quat="0.5 0.5 -0.5 -0.5" size="3 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_front_visual" material="walls_mat" />
-    
-    <body name="table" pos="0.0 0.0 0.775">
-      <geom pos="0 0 0" size="0.4 0.4 0.025" type="box" name="table_collision" friction="1 0.005 0.0001" rgba="0.5 0.5 0 1" />
-      <geom pos="0 0 0" size="0.4 0.4 0.025" type="box" conaffinity="0" contype="0" group="1" name="table_visual" material="table_ceramic" />
-      <site pos="0.0 0.0 0.025" name="table_top" size="0.001 0.001 0.001" rgba="0 0 0 0" />
-      
-      <geom pos="0.30000000000000004 0.30000000000000004 -0.3875" size="0.025 0.3875" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg1_visual" material="table_legs_metal" />
-      <geom pos="-0.30000000000000004 0.30000000000000004 -0.3875" size="0.025 0.3875" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg2_visual" material="table_legs_metal" />
-      <geom pos="-0.30000000000000004 -0.30000000000000004 -0.3875" size="0.025 0.3875" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg3_visual" material="table_legs_metal" />
-      <geom pos="0.30000000000000004 -0.30000000000000004 -0.3875" size="0.025 0.3875" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg4_visual" material="table_legs_metal" />
-    </body>
-
-    <light name="light1" diffuse=".8 .8 .8" dir="0 -.15 -1" directional="false" pos="1 1 4.0" specular="0.3 0.3 0.3" castshadow="false" />
-    <light name="light2" diffuse=".8 .8 .8" dir="0 -.15 -1" directional="false" pos="-3. -3. 4.0" specular="0.3 0.3 0.3" castshadow="false" />
-    
-    <camera mode="fixed" name="frontview" pos="1.6 0 1.45" quat="0.56 0.43 0.43 0.56" />
-    
-    <camera mode="fixed" name="birdview" pos="-0.2 0 3.0" quat="0.7071 0 0 0.7071" />
-    
-    <camera mode="fixed" name="agentview" pos="0.5 0 1.35" quat="0.653 0.271 0.271 0.653" />
-    
-    <camera mode="fixed" name="sideview" pos="-0.05651774593317116 1.2761224129427358 1.4879572214102434" quat="0.009905065491771751 0.006877963156909582 0.5912228352893879 0.806418094001364" />
-  <body>
-    <freejoint name="body_torso_free_joint" />
-      <body name="body_object" pos="0. 0. 0">
-        <geom name="body_client_body" mesh="body_body" type="mesh" density="1050" material="body_mat" contype="1" conaffinity="1" group="0" friction="1.5 0.005 0.0001" />
-      </body>
-      <body name="body_liver" pos="0. 0. 0">
-        <geom name="body_liver" mesh="body_liver" type="mesh" material="body_liver_mat" />
-      </body>
-      
-      <site rgba="1 0 0 1" size="0.0001" pos="0. 0. 0" group="1" name="body_site" />
-      <site rgba="1 0 0 1" size="0.0001" pos="0. 0. -0.15" group="1" name="body_bottom_site" />
-      <site rgba="0 1 0 1" size="0.0001" pos="0. 0. 0.15" group="1" name="body_top_site" />
-      <site rgba="0 0 1 1" size="0.0001" pos="0.35 0.35 0." group="1" name="body_horizontal_radius_site" />
-    </body>
-
-  </worldbody>
+		</worldbody>
 	
     <tendon>
-	
-		<spatial width="0.002" limited="true" range="0.45 0.55">
+		<spatial width="0.002" limited="true" range="0.20 0.30">
 		<site site="robot0_end_1" />
 		<site site="robot0_s_1_1" />
 		<site site="robot0_s_2_1" />
 		<site site="robot0_s_3_1" />
 		<site site="robot0_s_4_1" />
 		<site site="robot0_s_5_1" />
-		<site site="robot0_s_6_1" />
-		<site site="robot0_s_7_1" />
-		<site site="robot0_s_8_1" />
-		<site site="robot0_s_9_1" />
-		<site site="robot0_s_10_1" />
-		
-		
         </spatial>
 
-		<spatial width="0.002" limited="true" range="0.45 0.55">
+		<spatial width="0.002" limited="true" range="0.46 0.56">
 		<site site="robot0_end_2" />
 		<site site="robot0_s_1_2" />
 		<site site="robot0_s_2_2" />
@@ -352,29 +275,23 @@
 		<site site="robot0_s_8_2" />
 		<site site="robot0_s_9_2" />
 		<site site="robot0_s_10_2" />
-		
-		
         </spatial>
 
 
-		<spatial width="0.002" limited="true" range="0.45 0.55">
+		<spatial width="0.002" limited="true" range="0.20 0.30">
 		<site site="robot0_end_3" />
 		<site site="robot0_s_1_3" />
 		<site site="robot0_s_2_3" />
 		<site site="robot0_s_3_3" />
 		<site site="robot0_s_4_3" />
 		<site site="robot0_s_5_3" />
-		<site site="robot0_s_6_3" />
-		<site site="robot0_s_7_3" />
-		<site site="robot0_s_8_3" />
-		<site site="robot0_s_9_3" />
-		<site site="robot0_s_10_3" />
+		
 		
 		
         </spatial>
 
 
-		<spatial width="0.002" limited="true" range="0.45 0.55">
+		<spatial width="0.002" limited="true" range="0.46 0.56">
 		<site site="robot0_end_4" />
 		<site site="robot0_s_1_4" />
 		<site site="robot0_s_2_4" />
@@ -390,24 +307,20 @@
 		
         </spatial>
 
-		<spatial width="0.002" limited="true" range="0.45 0.55">
+		<spatial width="0.002" limited="true" range="0.20 0.30">
 		<site site="robot0_end_5" />
 		<site site="robot0_s_1_5" />
 		<site site="robot0_s_2_5" />
 		<site site="robot0_s_3_5" />
 		<site site="robot0_s_4_5" />
 		<site site="robot0_s_5_5" />
-		<site site="robot0_s_6_5" />
-		<site site="robot0_s_7_5" />
-		<site site="robot0_s_8_5" />
-		<site site="robot0_s_9_5" />
-		<site site="robot0_s_10_5" />
+		
 		
 		
         </spatial>
 
 
-		<spatial width="0.002" limited="true" range="0.45 0.55">
+		<spatial width="0.002" limited="true" range="0.46 0.56">
 		<site site="robot0_end_6" />
 		<site site="robot0_s_1_6" />
 		<site site="robot0_s_2_6" />
@@ -424,6 +337,4 @@
     </tendon>
 
 
-<sensor><force name="gripper0_force_ee" site="gripper0_ft_frame" />
-        <torque name="gripper0_torque_ee" site="gripper0_ft_frame" />
-    </sensor><equality /><contact /><default /></mujoco>
+<sensor /><equality /><contact /><default /></mujoco>
